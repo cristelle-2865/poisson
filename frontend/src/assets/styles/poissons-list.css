@@ -1,0 +1,852 @@
+/* poissons-list.css */
+
+/* Page Container */
+.poissons-list {
+  padding: 1.5rem;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  min-height: 100vh;
+}
+
+/* Header */
+.poissons-list .page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 20px;
+  color: white;
+  box-shadow: 0 10px 30px rgba(102, 126, 234, 0.2);
+}
+
+.poissons-list .page-header h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  margin: 0;
+  color: white;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.poissons-list .page-header h1::before {
+  content: "🐟";
+  font-size: 2.5rem;
+}
+
+.poissons-list .header-actions {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.poissons-list .btn-refresh {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  font-size: 1.5rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(10px);
+}
+
+.poissons-list .btn-refresh:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: rotate(90deg);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.poissons-list .btn-add {
+  background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border-radius: 12px;
+  text-decoration: none;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.3s ease;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+}
+
+.poissons-list .btn-add span {
+  font-size: 1.5rem;
+  font-weight: 400;
+}
+
+.poissons-list .btn-add:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(72, 187, 120, 0.3);
+  background: linear-gradient(135deg, #38a169 0%, #2f855a 100%);
+}
+
+/* Filters Container */
+.poissons-list .filters-container {
+  background: white;
+  border-radius: 20px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 1.5rem;
+  align-items: center;
+}
+
+@media (max-width: 768px) {
+  .poissons-list .filters-container {
+    grid-template-columns: 1fr;
+  }
+}
+
+.poissons-list .search-box {
+  position: relative;
+  flex: 1;
+}
+
+.poissons-list .search-box input {
+  width: 100%;
+  padding: 0.75rem 1rem 0.75rem 3rem;
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  background: #f8f9fa;
+}
+
+.poissons-list .search-box input:focus {
+  outline: none;
+  border-color: #667eea;
+  background: white;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.poissons-list .search-icon {
+  position: absolute;
+  left: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 1.2rem;
+  color: #718096;
+}
+
+.poissons-list .filter-group {
+  display: flex;
+  gap: 1rem;
+}
+
+@media (max-width: 768px) {
+  .poissons-list .filter-group {
+    flex-direction: column;
+  }
+}
+
+.poissons-list .filter-group select {
+  padding: 0.75rem 1rem;
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  background: white;
+  color: #4a5568;
+  font-weight: 600;
+  cursor: pointer;
+  min-width: 180px;
+  transition: all 0.3s ease;
+}
+
+.poissons-list .filter-group select:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+/* Filter Stats */
+.poissons-list .filter-stats {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(135deg, #ebf8ff 0%, #bee3f8 100%);
+  padding: 1rem 1.5rem;
+  border-radius: 15px;
+  margin-bottom: 1.5rem;
+  border: 2px solid #4299e1;
+}
+
+.poissons-list .filter-count {
+  font-weight: 700;
+  color: #2b6cb0;
+  font-size: 1.1rem;
+}
+
+.poissons-list .quick-stats {
+  display: flex;
+  gap: 2rem;
+}
+
+@media (max-width: 768px) {
+  .poissons-list .quick-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+  }
+}
+
+.poissons-list .quick-stats .stat {
+  font-weight: 600;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  font-size: 0.9rem;
+}
+
+.poissons-list .quick-stats .en-vie {
+  background: linear-gradient(135deg, #c6f6d5 0%, #9ae6b4 100%);
+  color: #22543d;
+}
+
+.poissons-list .quick-stats .pret {
+  background: linear-gradient(135deg, #fed7d7 0%, #feb2b2 100%);
+  color: #742a2a;
+}
+
+.poissons-list .quick-stats .vendu {
+  background: linear-gradient(135deg, #feebc8 0%, #fbd38d 100%);
+  color: #744210;
+}
+
+/* Table Container */
+.poissons-list .table-container {
+  background: white;
+  border-radius: 20px;
+  padding: 1.5rem;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+  margin-bottom: 2rem;
+}
+
+.poissons-list .table-responsive {
+  overflow-x: auto;
+  margin-bottom: 1.5rem;
+  border-radius: 15px;
+  border: 1px solid #e2e8f0;
+}
+
+.poissons-list .poissons-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 1200px;
+}
+
+.poissons-list .poissons-table thead {
+  background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.poissons-list .poissons-table th {
+  padding: 1rem;
+  text-align: left;
+  font-weight: 600;
+  color: #4a5568;
+  border-bottom: 2px solid #e2e8f0;
+  text-transform: uppercase;
+  font-size: 0.85rem;
+  letter-spacing: 0.05em;
+  cursor: default;
+  user-select: none;
+}
+
+.poissons-list .poissons-table th.sortable {
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  padding-right: 2rem;
+}
+
+.poissons-list .poissons-table th.sortable:hover {
+  background: #e2e8f0;
+  color: #2d3748;
+}
+
+.poissons-list .poissons-table th.sortable .sort-icon {
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 1rem;
+  font-weight: bold;
+}
+
+.poissons-list .poissons-table tbody tr {
+  border-bottom: 1px solid #e2e8f0;
+  transition: all 0.3s ease;
+}
+
+.poissons-list .poissons-table tbody tr:hover {
+  background: #f8f9fa;
+  transform: translateX(5px);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+}
+
+.poissons-list .poissons-table tbody tr.dead {
+  background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+  opacity: 0.7;
+}
+
+.poissons-list .poissons-table tbody tr.sold {
+  background: linear-gradient(135deg, #f0fff4 0%, #c6f6d5 100%);
+}
+
+.poissons-list .poissons-table tbody tr.ready-to-sell {
+  background: linear-gradient(135deg, #fffaf0 0%, #feebc8 100%);
+  border-left: 4px solid #ed8936;
+}
+
+.poissons-list .poissons-table tbody tr.hungry {
+  background: linear-gradient(135deg, #fed7d7 0%, #feb2b2 100%);
+  border-left: 4px solid #f56565;
+}
+
+.poissons-list .poissons-table td {
+  padding: 1rem;
+  color: #4a5568;
+  vertical-align: middle;
+}
+
+/* Poisson Name */
+.poissons-list .poisson-name {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.poissons-list .poisson-name .name {
+  font-weight: 600;
+  color: #2d3748;
+  font-size: 1.1rem;
+}
+
+.poissons-list .poisson-name .badge {
+  padding: 0.25rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.poissons-list .poisson-name .badge.ready {
+  background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+  color: white;
+}
+
+/* Weight Display */
+.poissons-list .weight-display {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.poissons-list .weight-value {
+  font-weight: 600;
+  color: #2d3748;
+  font-family: 'SF Mono', monospace;
+  font-size: 1rem;
+}
+
+.poissons-list .weight-bar {
+  height: 6px;
+  background: #e2e8f0;
+  border-radius: 3px;
+  overflow: hidden;
+  width: 100px;
+}
+
+.poissons-list .weight-fill {
+  height: 100%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 3px;
+  transition: width 1s ease;
+}
+
+/* Progress Cell */
+.poissons-list .progress-cell {
+  min-width: 150px;
+}
+
+.poissons-list .progress-container {
+  height: 24px;
+  background: #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+  position: relative;
+}
+
+.poissons-list .progress-bar {
+  height: 100%;
+  background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+  border-radius: 12px;
+  transition: width 1s ease;
+  position: relative;
+  min-width: 30px;
+}
+
+.poissons-list .progress-text {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 600;
+  font-size: 0.8rem;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* Date Info */
+.poissons-list .date-info {
+  font-size: 0.8rem;
+  color: #718096;
+  margin-top: 0.25rem;
+  font-style: italic;
+}
+
+/* Status Container */
+.poissons-list .status-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.poissons-list .status-badge {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  width: fit-content;
+}
+
+.poissons-list .status-badge.dead {
+  background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e0 100%);
+  color: #4a5568;
+}
+
+.poissons-list .status-badge.sold {
+  background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+  color: white;
+}
+
+.poissons-list .status-badge.ready {
+  background: linear-gradient(135deg, #ed8936 0%, #dd6b20 100%);
+  color: white;
+}
+
+.poissons-list .status-badge.fed {
+  background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
+  color: white;
+}
+
+.poissons-list .status-badge.hungry {
+  background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%);
+  color: white;
+}
+
+.poissons-list .status-icons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.poissons-list .status-icons span {
+  font-size: 1.2rem;
+  opacity: 0.8;
+  transition: transform 0.3s ease;
+}
+
+.poissons-list .status-icons span:hover {
+  transform: scale(1.2);
+  opacity: 1;
+}
+
+/* Action Buttons */
+.poissons-list .action-buttons {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.poissons-list .btn-action {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  border: none;
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f8f9fa;
+  color: #4a5568;
+}
+
+.poissons-list .btn-action:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+}
+
+.poissons-list .btn-action.view:hover {
+  background: #4299e1;
+  color: white;
+}
+
+.poissons-list .btn-action.feed:hover {
+  background: #48bb78;
+  color: white;
+}
+
+.poissons-list .btn-action.sell:hover {
+  background: #ed8936;
+  color: white;
+}
+
+.poissons-list .btn-action.edit:hover {
+  background: #9f7aea;
+  color: white;
+}
+
+.poissons-list .btn-action.delete:hover {
+  background: #f56565;
+  color: white;
+}
+
+/* Pagination */
+.poissons-list .pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 1.5rem;
+  background: #f8f9fa;
+  border-radius: 15px;
+  margin-top: 2rem;
+}
+
+.poissons-list .page-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid #e2e8f0;
+  background: white;
+  color: #4a5568;
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.poissons-list .page-btn:hover:not(:disabled) {
+  border-color: #667eea;
+  color: #667eea;
+  transform: scale(1.1);
+}
+
+.poissons-list .page-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.poissons-list .page-info {
+  font-weight: 600;
+  color: #4a5568;
+  background: white;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  border: 2px solid #e2e8f0;
+}
+
+.poissons-list .pagination select {
+  padding: 0.5rem 1rem;
+  border: 2px solid #e2e8f0;
+  border-radius: 10px;
+  background: white;
+  color: #4a5568;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.poissons-list .pagination select:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+/* No Results */
+.poissons-list .no-results {
+  text-align: center;
+  padding: 4rem 2rem;
+  background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+  border-radius: 20px;
+  border: 2px dashed #cbd5e0;
+  margin: 2rem 0;
+}
+
+.poissons-list .no-results-icon {
+  font-size: 4rem;
+  margin-bottom: 1.5rem;
+  opacity: 0.5;
+}
+
+.poissons-list .no-results h3 {
+  color: #4a5568;
+  margin-bottom: 1rem;
+}
+
+.poissons-list .no-results p {
+  color: #718096;
+  margin-bottom: 2rem;
+}
+
+.poissons-list .btn-add-empty {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 1rem 2rem;
+  border-radius: 12px;
+  text-decoration: none;
+  font-weight: 600;
+  display: inline-block;
+  transition: all 0.3s ease;
+}
+
+.poissons-list .btn-add-empty:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+}
+
+/* Modal */
+.poissons-list .modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(5px);
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.poissons-list .modal {
+  background: white;
+  border-radius: 20px;
+  padding: 2rem;
+  max-width: 500px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.2);
+  animation: slideUp 0.4s ease;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(50px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.poissons-list .modal h3 {
+  color: #2d3748;
+  margin-bottom: 1rem;
+}
+
+.poissons-list .modal p {
+  color: #4a5568;
+  margin-bottom: 1rem;
+  line-height: 1.6;
+}
+
+.poissons-list .warning-text {
+  color: #c53030;
+  font-weight: 600;
+  background: #fed7d7;
+  padding: 0.75rem;
+  border-radius: 10px;
+  border-left: 4px solid #f56565;
+}
+
+.poissons-list .modal-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin-top: 2rem;
+}
+
+.poissons-list .modal-actions button {
+  padding: 1rem 2rem;
+  border: none;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-width: 150px;
+}
+
+.poissons-list .btn-delete-confirm {
+  background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%);
+  color: white;
+}
+
+.poissons-list .btn-delete-confirm:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(245, 101, 101, 0.3);
+}
+
+.poissons-list .btn-cancel {
+  background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e0 100%);
+  color: #4a5568;
+}
+
+.poissons-list .btn-cancel:hover {
+  background: #cbd5e0;
+  transform: translateY(-2px);
+}
+
+/* Batch Actions */
+.poissons-list .batch-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+  padding: 1.5rem;
+  background: white;
+  border-radius: 20px;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+}
+
+@media (max-width: 768px) {
+  .poissons-list .batch-actions {
+    flex-direction: column;
+  }
+}
+
+.poissons-list .batch-actions button {
+  padding: 1rem 2rem;
+  border: none;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  justify-content: center;
+}
+
+.poissons-list .btn-export {
+  background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
+  color: white;
+}
+
+.poissons-list .btn-export:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(66, 153, 225, 0.3);
+}
+
+.poissons-list .btn-batch {
+  background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+  color: white;
+}
+
+.poissons-list .btn-batch:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(72, 187, 120, 0.3);
+}
+
+/* Loading State */
+.poissons-list .loading {
+  text-align: center;
+  padding: 4rem;
+  color: #718096;
+  font-size: 1.2rem;
+}
+
+.poissons-list .loading::after {
+  content: '';
+  display: inline-block;
+  width: 30px;
+  height: 30px;
+  margin-left: 1rem;
+  border: 3px solid #e2e8f0;
+  border-top-color: #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  vertical-align: middle;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .poissons-list {
+    padding: 1rem;
+  }
+  
+  .poissons-list .page-header {
+    flex-direction: column;
+    gap: 1rem;
+    text-align: center;
+  }
+  
+  .poissons-list .header-actions {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .poissons-list .action-buttons {
+    flex-direction: column;
+  }
+  
+  .poissons-list .btn-action {
+    width: 100%;
+  }
+  
+  .poissons-list .modal-actions {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 480px) {
+  .poissons-list .page-header h1 {
+    font-size: 1.5rem;
+  }
+  
+  .poissons-list .card {
+    padding: 1rem;
+  }
+  
+  .poissons-list .batch-actions button {
+    padding: 0.75rem 1rem;
+    font-size: 0.9rem;
+  }
+}
+
