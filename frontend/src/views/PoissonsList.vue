@@ -748,4 +748,7 @@ export default {
 }
 </script>
 
+<style scoped>
+@import '../assets/styles/poissons-list.css';
+</style>
 

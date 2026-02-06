@@ -1,94 +1,151 @@
-import api from './api'
+// services/bassinService.js
+import api from './api';
 
 const bassinService = {
-  // Récupérer tous les bassins
-  async getAllBassins() {
-    try {
-      const response = await api.get('/piscines')
-      return response.data
-    } catch (error) {
-      console.error('Erreur récupération bassins:', error)
-      throw error
-    }
-  },
+    async getAll() {
+        try {
+            const response = await api.get('/piscines');
+            return response.data;
+        } catch (error) {
+            console.error('Erreur récupération bassins:', error);
+            throw error;
+        }
+    },
 
-  // Récupérer un bassin par ID
-  async getBassinById(id) {
-    try {
-      const response = await api.get(`/piscines/${id}`)
-      return response.data
-    } catch (error) {
-      console.error(`Erreur récupération bassin ${id}:`, error)
-      throw error
-    }
-  },
+    async getById(id) {
+        try {
+            const response = await api.get(`/piscines/${id}`);
+            return response.data;
+        } catch (error) {
+            console.error('Erreur récupération bassin:', error);
+            throw error;
+        }
+    },
 
-  // Récupérer les bassins avec capacité disponible
-  async getBassinsAvecCapacite() {
-    try {
-      const response = await api.get('/piscines/avec-capacite')
-      return response.data
-    } catch (error) {
-      console.error('Erreur récupération bassins avec capacité:', error)
-      throw error
-    }
-  },
+    async getStatistics(id) {
+        try {
+            const response = await api.get(`/piscines/${id}/statistiques`);
+            return response.data;
+        } catch (error) {
+            console.error('Erreur statistiques bassin:', error);
+            throw error;
+        }
+    },
 
-  // Récupérer les bassins par type
-  async getBassinsParType(type) {
-    try {
-      const response = await api.get(`/piscines/type/${type}`)
-      return response.data
-    } catch (error) {
-      console.error(`Erreur récupération bassins type ${type}:`, error)
-      throw error
-    }
-  },
+    async getPoissons(id) {
+        try {
+            const response = await api.get(`/piscines/${id}/poissons`);
+            return response.data;
+        } catch (error) {
+            console.error('Erreur poissons bassin:', error);
+            throw error;
+        }
+    },
 
-  // Créer un nouveau bassin
-  async createBassin(bassinData) {
-    try {
-      const response = await api.post('/piscines', bassinData)
-      return response.data
-    } catch (error) {
-      console.error('Erreur création bassin:', error)
-      throw error
-    }
-  },
+    async getHistorique(id) {
+        try {
+            const response = await api.get(`/piscines/${id}/historique`);
+            return response.data;
+        } catch (error) {
+            console.error('Erreur historique bassin:', error);
+            throw error;
+        }
+    },
 
-  // Mettre à jour un bassin
-  async updateBassin(id, bassinData) {
-    try {
-      const response = await api.put(`/piscines/${id}`, bassinData)
-      return response.data
-    } catch (error) {
-      console.error(`Erreur mise à jour bassin ${id}:`, error)
-      throw error
-    }
-  },
+    async create(bassin) {
+        try {
+            const response = await api.post('/piscines', bassin);
+            return response.data;
+        } catch (error) {
+            console.error('Erreur création bassin:', error);
+            throw error;
+        }
+    },
 
-  // Supprimer un bassin
-  async deleteBassin(id) {
-    try {
-      await api.delete(`/piscines/${id}`)
-    } catch (error) {
-      console.error(`Erreur suppression bassin ${id}:`, error)
-      throw error
-    }
-  },
+    async update(id, bassin) {
+        try {
+            const response = await api.put(`/piscines/${id}`, bassin);
+            return response.data;
+        } catch (error) {
+            console.error('Erreur mise à jour bassin:', error);
+            throw error;
+        }
+    },
 
-  // Récupérer les statistiques des bassins
-  async getStatistiquesBassins() {
-    try {
-      const response = await api.get('/piscines/statistiques')
-      return response.data
-    } catch (error) {
-      console.error('Erreur récupération statistiques bassins:', error)
-      throw error
-    }
-  }
-}
+    async delete(id) {
+        try {
+            await api.delete(`/piscines/${id}`);
+        } catch (error) {
+            console.error('Erreur suppression bassin:', error);
+            throw error;
+        }
+    },
 
-export default bassinService
+    async toggleStatus(id) {
+        try {
+            const response = await api.patch(`/piscines/${id}/toggle`);
+            return response.data;
+        } catch (error) {
+            console.error('Erreur changement statut bassin:', error);
+            throw error;
+        }
+    },
+
+    async affecterPoisson(idBassin, idPoisson) {
+        try {
+            const response = await api.post(`/piscines/${idBassin}/affecter/${idPoisson}`);
+            return response.data;
+        } catch (error) {
+            console.error('Erreur affectation poisson:', error);
+            throw error;
+        }
+    },
+
+    async retirerPoisson(idPoisson, raison) {
+        try {
+            const response = await api.post(`/piscines/retirer/${idPoisson}`, null, {
+                params: { raison }
+            });
+            return response.data;
+        } catch (error) {
+            console.error('Erreur retrait poisson:', error);
+            throw error;
+        }
+    },
+
+    async viderBassin(idBassin, raison) {
+        try {
+            const response = await api.post(`/piscines/${idBassin}/vider`, null, {
+                params: { raison }
+            });
+            return response.data;
+        } catch (error) {
+            console.error('Erreur vidage bassin:', error);
+            throw error;
+        }
+    },
+
+    async getBassinsDisponibles() {
+        try {
+            const response = await api.get('/piscines/disponibles');
+            return response.data;
+        } catch (error) {
+            console.error('Erreur bassins disponibles:', error);
+            throw error;
+        }
+    },
+
+    async getHistoriquePoisson(idPoisson) {
+        try {
+            const response = await api.get(`/piscines/poisson/${idPoisson}/historique`);
+            return response.data;
+        } catch (error) {
+            console.error('Erreur historique poisson:', error);
+            throw error;
+        }
+    }
+};
+
+export default bassinService;
 
 

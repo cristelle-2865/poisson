@@ -49,25 +49,26 @@
 
             <div class="form-group">
               <label for="race">Race *</label>
-              <select
-                id="race"
-                v-model="form.idRacePoisson"
-                :class="{ 'error': errors.idRacePoisson }"
-                required
-              >
-                <option value="">Sélectionner une race</option>
-                <option v-for="race in races" :key="race.idRacePoisson" :value="race.idRacePoisson">
-                  {{ race.nomRacePoisson }}
-                </option>
-              </select>
+              <div class="select-with-button">
+                <select
+                  id="race"
+                  v-model="form.idRacePoisson"
+                  :class="{ 'error': errors.idRacePoisson }"
+                  required
+                >
+                  <option value="">Sélectionner une race</option>
+                  <option v-for="race in races" :key="race.idRacePoisson" :value="race.idRacePoisson">
+                    {{ race.nomRacePoisson }}
+                  </option>
+                </select>
+                <button type="button" @click="showAddRaceModal = true" class="btn-add-race">
+                  +
+                </button>
+              </div>
               <span v-if="errors.idRacePoisson" class="error-message">{{ errors.idRacePoisson }}</span>
-              <button type="button" @click="showAddRaceModal = true" class="btn-link">
-                + Ajouter une nouvelle race
-              </button>
             </div>
 
-            <!-- NOUVEAU : Sélection du bassin -->
-            <!-- Section bassin corrigée -->
+            <!-- BASSIN SIMPLIFIÉ -->
             <div class="form-group">
               <label for="bassin">Bassin (optionnel)</label>
               <select
@@ -389,10 +390,6 @@
                 <span class="date-label">Date d'arrivée</span>
                 <span class="date-value">{{ formatDatePreview(form.dateArriveePoisson) }}</span>
               </div>
-              <div class="date-item" v-if="getBassinName()">
-                <span class="date-label">Bassin assigné</span>
-                <span class="date-value">{{ getBassinName() }}</span>
-              </div>
             </div>
           </div>
         </div>
@@ -412,12 +409,12 @@
       </div>
     </div>
 
-    <!-- Modale ajout race -->
+    <!-- Modale ajout race SIMPLIFIÉE -->
     <div v-if="showAddRaceModal" class="modal-overlay">
       <div class="modal">
         <div class="modal-header">
           <h3>Ajouter une nouvelle race</h3>
-          <button @click="showAddRaceModal = false" class="modal-close">×</button>
+          <button @click="closeRaceModal" class="modal-close">×</button>
         </div>
         <div class="modal-body">
           <div class="form-group">
@@ -428,12 +425,10 @@
               v-model="newRaceData.nomRacePoisson"
               placeholder="Ex: Tilapia du Nil"
               required
-              :class="{ 'error': raceErrors.nomRacePoisson }"
             />
-            <span v-if="raceErrors.nomRacePoisson" class="error-message">{{ raceErrors.nomRacePoisson }}</span>
           </div>
           <div class="form-group">
-            <label for="newRaceDescription">Description</label>
+            <label for="newRaceDescription">Description (optionnelle)</label>
             <textarea
               id="newRaceDescription"
               v-model="newRaceData.descriptionRacePoisson"
@@ -443,12 +438,11 @@
           </div>
         </div>
         <div class="modal-footer">
-          <button @click="showAddRaceModal = false" class="btn-cancel">
+          <button @click="closeRaceModal" class="btn-cancel">
             Annuler
           </button>
-          <button @click="addNewRace" class="btn-submit" :disabled="isAddingRace">
-            <span v-if="isAddingRace" class="spinner"></span>
-            {{ isAddingRace ? 'Ajout en cours...' : 'Ajouter la race' }}
+          <button @click="addNewRace" class="btn-submit">
+            Ajouter la race
           </button>
         </div>
       </div>
@@ -466,15 +460,15 @@ export default {
   setup() {
     const router = useRouter()
     
-    // État du formulaire
+    // État du formulaire SIMPLIFIÉ
     const form = ref({
       nomPoisson: '',
       idRacePoisson: '',
-      idPiscineActuel: '', // NOUVEAU: ID du bassin
+      idPiscineActuel: '',
       prixAchatPoisson: 0,
       prixVentePoisson: 0,
       poidsMaximalPoisson: 0,
-      capaciteAugmentationPoisson: 20, // Valeur par défaut
+      capaciteAugmentationPoisson: 20,
       poidsInitialPoisson: 0,
       dateArriveePoisson: new Date().toISOString().split('T')[0],
       estRassasiePoisson: true,
@@ -483,7 +477,7 @@ export default {
 
     // État de l'application
     const races = ref([])
-    const bassins = ref([]) // NOUVEAU: Liste des bassins
+    const bassins = ref([])
     const errors = ref({})
     const isSubmitting = ref(false)
     const errorMessage = ref('')
@@ -493,8 +487,6 @@ export default {
       nomRacePoisson: '',
       descriptionRacePoisson: ''
     })
-    const raceErrors = ref({})
-    const isAddingRace = ref(false)
 
     // Charger les données initiales
     const loadInitialData = async () => {
@@ -506,24 +498,26 @@ export default {
         // Charger les bassins
         await loadBassins()
         
-        // Si aucune race, proposer d'en créer une
-        if (races.value.length === 0) {
-          showAddRaceModal.value = true
-        }
       } catch (error) {
         console.error('Erreur chargement données:', error)
-        errorMessage.value = 'Impossible de charger les données initiales'
+        errorMessage.value = 'Impossible de charger les données'
       }
     }
 
-    // Charger les bassins
+    // Charger les bassins SIMPLIFIÉ
     const loadBassins = async () => {
       try {
-        const bassinsData = await poissonService.getBassins()
-        bassins.value = bassinsData
+        // Utiliser fetch directement pour éviter les problèmes CORS
+        const response = await fetch('http://localhost:8080/piscines')
+        if (response.ok) {
+          const data = await response.json()
+          bassins.value = data
+        } else {
+          console.error('Erreur chargement bassins:', response.status)
+          bassins.value = []
+        }
       } catch (error) {
-        console.error('Erreur chargement bassins:', error)
-        // Ne pas bloquer le formulaire si erreur de chargement des bassins
+        console.error('Erreur réseau bassins:', error)
         bassins.value = []
       }
     }
@@ -686,16 +680,6 @@ export default {
       return Object.keys(errors.value).length === 0
     }
 
-    const validateRaceForm = () => {
-      raceErrors.value = {}
-      
-      if (!newRaceData.value.nomRacePoisson.trim()) {
-        raceErrors.value.nomRacePoisson = 'Le nom de la race est requis'
-      }
-      
-      return Object.keys(raceErrors.value).length === 0
-    }
-
     const submitForm = async () => {
       if (!validateForm()) {
         errorMessage.value = 'Veuillez corriger les erreurs dans le formulaire'
@@ -706,18 +690,17 @@ export default {
       errorMessage.value = ''
 
       try {
-        // Préparer les données pour l'API
+        // Préparer les données pour l'API - FORMAT CORRECT
         const poissonData = {
           nomPoisson: form.value.nomPoisson,
           racePoisson: {
-            idRacePoisson: form.value.idRacePoisson
+            idRacePoisson: parseInt(form.value.idRacePoisson)
           },
           prixAchatPoisson: parseFloat(form.value.prixAchatPoisson),
           prixVentePoisson: parseFloat(form.value.prixVentePoisson),
           poidsMaximalPoisson: parseFloat(form.value.poidsMaximalPoisson),
           capaciteAugmentationPoisson: parseFloat(form.value.capaciteAugmentationPoisson),
           poidsInitialPoisson: parseFloat(form.value.poidsInitialPoisson),
-          poidsActuelPoisson: parseFloat(form.value.poidsInitialPoisson), // Même que poids initial
           dateArriveePoisson: form.value.dateArriveePoisson,
           estRassasiePoisson: form.value.estRassasiePoisson,
           estEnViePoisson: form.value.estEnViePoisson,
@@ -727,12 +710,14 @@ export default {
         // Ajouter le bassin si sélectionné
         if (form.value.idPiscineActuel) {
           poissonData.piscineActuelle = {
-            idPiscine: form.value.idPiscineActuel
+            idPiscine: parseInt(form.value.idPiscineActuel)
           }
         }
 
-        // Appeler l'API
-        await poissonService.createPoisson(poissonData)
+        console.log('Données envoyées:', poissonData)
+
+        // Appeler l'API standard
+        const createdPoisson = await poissonService.createPoisson(poissonData)
         
         successMessage.value = 'Poisson créé avec succès !'
         
@@ -771,13 +756,20 @@ export default {
       successMessage.value = ''
     }
 
+    const closeRaceModal = () => {
+      showAddRaceModal.value = false
+      newRaceData.value = {
+        nomRacePoisson: '',
+        descriptionRacePoisson: ''
+      }
+    }
+
     const addNewRace = async () => {
-      if (!validateRaceForm()) {
+      if (!newRaceData.value.nomRacePoisson.trim()) {
+        alert('Le nom de la race est requis')
         return
       }
 
-      isAddingRace.value = true
-      
       try {
         const raceData = {
           nomRacePoisson: newRaceData.value.nomRacePoisson,
@@ -785,11 +777,11 @@ export default {
           estActifRacePoisson: true
         }
 
-        // Utiliser le service pour créer la race
+        // Utiliser fetch directement
         const response = await fetch('http://localhost:8080/races-poisson', {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
           },
           body: JSON.stringify(raceData)
         })
@@ -804,21 +796,14 @@ export default {
         races.value.push(newRace)
         form.value.idRacePoisson = newRace.idRacePoisson
         
-        // Réinitialiser le formulaire de race
-        newRaceData.value = {
-          nomRacePoisson: '',
-          descriptionRacePoisson: ''
-        }
-        raceErrors.value = {}
-        showAddRaceModal.value = false
+        // Fermer la modal
+        closeRaceModal()
         
         successMessage.value = 'Race ajoutée avec succès'
         
       } catch (error) {
         console.error('Erreur ajout race:', error)
-        errorMessage.value = 'Erreur lors de l\'ajout de la race: ' + error.message
-      } finally {
-        isAddingRace.value = false
+        errorMessage.value = 'Erreur lors de l\'ajout de la race'
       }
     }
 
@@ -833,9 +818,7 @@ export default {
       races,
       bassins,
       errors,
-      raceErrors,
       isSubmitting,
-      isAddingRace,
       errorMessage,
       successMessage,
       showAddRaceModal,
@@ -860,6 +843,7 @@ export default {
       formatDatePreview,
       submitForm,
       resetForm,
+      closeRaceModal,
       addNewRace
     }
   }
@@ -867,10 +851,25 @@ export default {
 </script>
 
 <style scoped>
-/* Styles spécifiques pour le nouveau select bassin */
-.form-group select option:disabled {
-  color: #999;
-  font-style: italic;
+/* Styles spécifiques pour le nouveau layout */
+.select-with-button {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-add-race {
+  width: 40px;
+  background: #4299e1;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 18px;
+  transition: background 0.2s;
+}
+
+.btn-add-race:hover {
+  background: #3182ce;
 }
 
 .preview-bassin {
@@ -885,37 +884,221 @@ export default {
   gap: 5px;
 }
 
-/* Style pour les options de bassin avec capacité */
-select option[value=""] {
-  font-style: italic;
-  color: #666;
+/* Styles pour les selects */
+select {
+  padding: 12px 15px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 16px;
+  transition: all 0.2s;
+  background: white;
+  appearance: menulist;
+  cursor: pointer;
 }
 
-/* Surligner les bassins presque pleins */
-.bassin-warning {
-  color: #ff6b6b;
-  font-weight: bold;
+select:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
-/* Améliorer l'affichage des options */
 select option {
-  padding: 8px;
+  padding: 10px;
+  background: white;
+  color: #2d3748;
 }
 
-/* Animation pour la modal race */
-.modal {
-  animation: modalSlide 0.3s ease;
+select option:disabled {
+  color: #a0aec0;
+  font-style: italic;
 }
 
-@keyframes modalSlide {
-  from {
-    opacity: 0;
-    transform: translateY(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+/* Styles existants inchangés... */
+.nouveau-poisson {
+  padding: 20px;
+  background: #f7fafc;
+  min-height: 100vh;
 }
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+  background: white;
+  padding: 25px;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.btn-back {
+  color: #4a5568;
+  text-decoration: none;
+  font-weight: 600;
+  padding: 10px 15px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.btn-back:hover {
+  background: #f7fafc;
+  border-color: #cbd5e0;
+}
+
+.page-header h1 {
+  margin: 0;
+  color: #2d3748;
+  font-size: 28px;
+}
+
+.btn-reset {
+  padding: 10px 20px;
+  background: #e2e8f0;
+  color: #4a5568;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.btn-reset:hover:not(:disabled) {
+  background: #cbd5e0;
+}
+
+.btn-reset:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Alertes */
+.alert {
+  padding: 15px 20px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.alert.error {
+  background: #fed7d7;
+  color: #742a2a;
+  border-left: 4px solid #f56565;
+}
+
+.alert.success {
+  background: #c6f6d5;
+  color: #22543d;
+  border-left: 4px solid #48bb78;
+}
+
+.alert-icon {
+  font-size: 20px;
+}
+
+.alert-close {
+  margin-left: auto;
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: inherit;
+}
+
+/* Formulaire */
+.form-container {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 30px;
+}
+
+.poisson-form {
+  background: white;
+  padding: 30px;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+
+.form-section {
+  margin-bottom: 40px;
+  padding-bottom: 30px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.form-section:last-child {
+  border-bottom: none;
+}
+
+.form-section h2 {
+  margin: 0 0 25px 0;
+  color: #2d3748;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 25px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-group label {
+  font-weight: 600;
+  color: #4a5568;
+  font-size: 14px;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  padding: 12px 15px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 16px;
+  transition: all 0.2s;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.form-group input.error,
+.form-group select.error {
+  border-color: #f56565;
+}
+
+.error-message {
+  color: #f56565;
+  font-size: 14px;
+  margin-top: 5px;
+}
+
+.input-info {
+  font-size: 12px;
+  color: #718096;
+  margin-top: 5px;
+}
+
+/* Reste des styles inchangés... */
 </style>
 
