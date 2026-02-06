@@ -80,5 +80,14 @@ public class PoissonController {
             @RequestBody Poisson poisson) {
         return ResponseEntity.ok(poissonService.updatePoissonWithBassin(id, poisson));
     }
+
+    @PostMapping("/with-bassin")
+    public ResponseEntity<Poisson> createPoissonWithBassin(@RequestBody Poisson poisson) {
+        // Si un bassin est spécifié, l'affecter
+        if (poisson.getPiscineActuelle() != null && poisson.getPiscineActuelle().getIdPiscine() != null) {
+            return ResponseEntity.ok(poissonService.updatePoissonWithBassin(poisson.getIdPoisson(), poisson));
+        }
+        return ResponseEntity.ok(poissonService.createPoisson(poisson));
+    }
 }
 

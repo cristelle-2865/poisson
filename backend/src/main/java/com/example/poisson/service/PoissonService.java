@@ -257,5 +257,18 @@ public class PoissonService {
     //     // Vous pouvez la supprimer ou la garder comme alias
     //     return updatePoissonWithBassin(id, poissonDetails);
     // }
+
+    public Poisson createPoissonWithPiscine(Poisson poisson) {
+        // Créer le poisson d'abord
+        poisson.setPoidsActuelPoisson(poisson.getPoidsInitialPoisson());
+        Poisson savedPoisson = poissonRepository.save(poisson);
+        
+        // Si un bassin est spécifié, l'affecter
+        if (poisson.getPiscineActuelle() != null && poisson.getPiscineActuelle().getIdPiscine() != null) {
+            return updatePoissonWithBassin(savedPoisson.getIdPoisson(), poisson);
+        }
+        
+        return savedPoisson;
+    }
 }
 
