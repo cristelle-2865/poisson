@@ -35,3 +35,5 @@ public interface PiscineRepository extends JpaRepository<Piscine, Long> {
     Integer sumTotalCapacity();
 }
 
+
+
