@@ -3,14 +3,14 @@ import api from './api'
 const poissonService = {
   // Récupérer tous les poissons
   async getAllPoissons() {
-      try {
-          const response = await api.get('/poissons')
-          console.log('Données reçues:', response.data) // AJOUTEZ CE LOG
-          return response.data
-      } catch (error) {
-          console.error('Erreur récupération poissons:', error)
-          throw error
-      }
+    try {
+      const response = await api.get('/poissons')
+      console.log('Données reçues:', response.data)
+      return response.data
+    } catch (error) {
+      console.error('Erreur récupération poissons:', error)
+      throw error
+    }
   },
 
   // Récupérer les poissons en vie
@@ -124,30 +124,66 @@ const poissonService = {
       return response.data
     } catch (error) {
       console.error('Erreur récupération races:', error)
-      // Retourner un tableau vide si l'endpoint n'existe pas encore
       return []
     }
   },
 
-   async getPoissonsSansBassin() {
-        try {
-            const response = await api.get('/poissons/sans-bassin');
-            return response.data;
-        } catch (error) {
-            console.error('Erreur récupération poissons sans bassin:', error);
-            throw error;
-        }
-    },
-
-    async updateWithBassin(id, poissonData) {
-        try {
-            const response = await api.put(`/poissons/${id}/with-bassin`, poissonData);
-            return response.data;
-        } catch (error) {
-            console.error('Erreur mise à jour poisson avec bassin:', error);
-            throw error;
-        }
+  // Récupérer les poissons sans bassin
+  async getPoissonsSansBassin() {
+    try {
+      const response = await api.get('/poissons/sans-bassin')
+      return response.data
+    } catch (error) {
+      console.error('Erreur récupération poissons sans bassin:', error)
+      throw error
     }
+  },
+
+  // Mettre à jour un poisson avec bassin
+  async updateWithBassin(id, poissonData) {
+    try {
+      const response = await api.put(`/poissons/${id}/with-bassin`, poissonData)
+      return response.data
+    } catch (error) {
+      console.error('Erreur mise à jour poisson avec bassin:', error)
+      throw error
+    }
+  },
+
+  // Récupérer tous les bassins (nouvelle méthode)
+  async getBassins() {
+    try {
+      const response = await api.get('/piscines')
+      return response.data
+    } catch (error) {
+      console.error('Erreur récupération bassins:', error)
+      return []
+    }
+  },
+
+  // Assigner un bassin à un poisson
+  async assignerBassin(poissonId, piscineId) {
+    try {
+      const response = await api.put(`/poissons/${poissonId}/assigner-bassin`, {
+        piscineId: piscineId
+      })
+      return response.data
+    } catch (error) {
+      console.error('Erreur assignation bassin:', error)
+      throw error
+    }
+  },
+
+  // Récupérer l'historique des bassins d'un poisson
+  async getHistoriqueBassins(poissonId) {
+    try {
+      const response = await api.get(`/poissons/${poissonId}/historique-bassins`)
+      return response.data
+    } catch (error) {
+      console.error('Erreur récupération historique bassins:', error)
+      return []
+    }
+  }
 }
 
 export default poissonService
