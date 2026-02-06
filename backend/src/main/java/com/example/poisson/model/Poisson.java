@@ -93,6 +93,7 @@ public class Poisson {
         return pourcentage.compareTo(BigDecimal.valueOf(95)) >= 0;
     }
 
+
     // Ajoutez ces méthodes utilitaires
     @Transient
     public void assignToPiscine(Piscine piscine) {
