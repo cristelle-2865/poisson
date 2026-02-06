@@ -124,6 +124,7 @@ const bassinService = {
             throw error;
         }
     },
+    
 
     async getBassinsDisponibles() {
         try {
