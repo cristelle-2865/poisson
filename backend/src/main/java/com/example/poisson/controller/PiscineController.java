@@ -30,6 +30,7 @@ public class PiscineController {
         return ResponseEntity.ok(piscineService.getActivePiscines());
     }
     
+    
     @GetMapping("/disponibles")
     public ResponseEntity<List<Piscine>> getAvailablePiscines() {
         return ResponseEntity.ok(piscineService.findPiscinesAvailableForTransfer());

@@ -41,5 +41,6 @@ public class AuthController {
         boolean isValid = true; // Simplifié pour la démo
         return ResponseEntity.ok(isValid);
     }
+    
 }
 

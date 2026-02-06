@@ -14,6 +14,7 @@ import java.util.List;
 @CrossOrigin(origins = "http://localhost:5173")
 public class FisakafoananaController {
     
+    
     private final FisakafoananaService fisakafoananaService;
     
     @GetMapping("/poisson/{poissonId}")

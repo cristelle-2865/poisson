@@ -15,6 +15,7 @@ import java.util.List;
 public class RacePoissonController {
     
     private final RacePoissonRepository racePoissonRepository;
+ 
     
     @GetMapping
     public ResponseEntity<List<RacePoisson>> getAllRaces() {
