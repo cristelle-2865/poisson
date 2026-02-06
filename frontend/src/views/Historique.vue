@@ -8,13 +8,38 @@
       <div class="filters">
         <div class="filter-group">
           <label for="date-range">Période :</label>
-          <select v-model="dateRange" @change="loadHistorique">
+          <select v-model="dateRange" @change="onDateRangeChange">
             <option value="7">7 derniers jours</option>
             <option value="30">30 derniers jours</option>
             <option value="90">3 derniers mois</option>
             <option value="365">1 an</option>
+            <option value="custom">Personnalisée</option>
             <option value="all">Tout l'historique</option>
           </select>
+        </div>
+        
+        <!-- Filtres par date personnalisée -->
+        <div v-if="dateRange === 'custom'" class="date-range-filters">
+          <div class="filter-group">
+            <label for="date-min">Date début :</label>
+            <input 
+              type="date" 
+              v-model="dateMin" 
+              @change="loadHistorique"
+              id="date-min"
+              class="date-input"
+            />
+          </div>
+          <div class="filter-group">
+            <label for="date-max">Date fin :</label>
+            <input 
+              type="date" 
+              v-model="dateMax" 
+              @change="loadHistorique"
+              id="date-max"
+              class="date-input"
+            />
+          </div>
         </div>
         
         <div class="filter-group">
@@ -43,6 +68,11 @@
         
         <button class="btn-export" @click="exportData">
           📤 Exporter Excel
+        </button>
+        
+        <!-- Bouton pour réinitialiser tous les filtres -->
+        <button class="btn-reset" @click="resetFilters" title="Réinitialiser tous les filtres">
+          ♻️ Réinitialiser
         </button>
       </div>
     </div>
@@ -432,6 +462,8 @@ export default {
     const historique = ref([])
     const poissonsList = ref([])
     const dateRange = ref('30')
+    const dateMin = ref('')
+    const dateMax = ref('')
     const selectedPoisson = ref('')
     const statutFilter = ref('')
     const searchQuery = ref('')
@@ -463,10 +495,31 @@ export default {
     const periodStart = ref(new Date())
     const periodEnd = ref(new Date())
 
+    // Initialiser les dates par défaut
+    const initDefaultDates = () => {
+      const today = new Date()
+      const thirtyDaysAgo = new Date()
+      thirtyDaysAgo.setDate(today.getDate() - 30)
+      
+      dateMin.value = formatDateForInput(thirtyDaysAgo)
+      dateMax.value = formatDateForInput(today)
+    }
+
+    // Formater la date pour l'input type="date"
+    const formatDateForInput = (date) => {
+      const year = date.getFullYear()
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      return `${year}-${month}-${day}`
+    }
+
     // Charger les données initiales
     const loadInitialData = async () => {
       try {
         console.log('Chargement des données initiales...')
+        
+        // Initialiser les dates par défaut
+        initDefaultDates()
         
         // Charger la liste des poissons
         const poissons = await poissonService.getPoissonsEnVie()
@@ -482,13 +535,10 @@ export default {
       }
     }
 
-    // Charger l'historique
-    const loadHistorique = async () => {
-      try {
-        console.log('Chargement de l\'historique...')
-        
-        // Calculer les dates de la période
-        const endDate = new Date()
+    // Gérer le changement de période
+    const onDateRangeChange = () => {
+      if (dateRange.value !== 'custom') {
+        const today = new Date()
         const startDate = new Date()
         
         if (dateRange.value !== 'all') {
@@ -499,13 +549,21 @@ export default {
           startDate.setFullYear(startDate.getFullYear() - 2)
         }
         
-        periodStart.value = startDate
-        periodEnd.value = endDate
+        dateMin.value = formatDateForInput(startDate)
+        dateMax.value = formatDateForInput(today)
+      }
+      
+      loadHistorique()
+    }
+
+    // Charger l'historique
+    const loadHistorique = async () => {
+      try {
+        console.log('Chargement de l\'historique...')
         
-        // Formater les dates pour l'API
-        const formatDateForAPI = (date) => {
-          return date.toISOString().split('T')[0]
-        }
+        // Mettre à jour les dates de période pour l'affichage
+        periodStart.value = new Date(dateMin.value)
+        periodEnd.value = new Date(dateMax.value)
         
         // Si un poisson spécifique est sélectionné
         if (selectedPoisson.value) {
@@ -529,6 +587,25 @@ export default {
           historique.value = allData
         }
         
+        // Appliquer le filtre par date côté client
+        if (dateMin.value || dateMax.value) {
+          historique.value = historique.value.filter(item => {
+            const itemDate = new Date(item.dateNourrissageFisakafoanana)
+            
+            if (dateMin.value && itemDate < new Date(dateMin.value)) {
+              return false
+            }
+            if (dateMax.value) {
+              const maxDate = new Date(dateMax.value)
+              maxDate.setHours(23, 59, 59, 999) // Inclure toute la journée
+              if (itemDate > maxDate) {
+                return false
+              }
+            }
+            return true
+          })
+        }
+        
         // Calculer les statistiques
         calculateStats()
         
@@ -543,6 +620,18 @@ export default {
         console.error('Erreur chargement historique:', error)
         historique.value = []
       }
+    }
+
+    // Réinitialiser tous les filtres
+    const resetFilters = () => {
+      dateRange.value = '30'
+      selectedPoisson.value = ''
+      statutFilter.value = ''
+      searchQuery.value = ''
+      currentPage.value = 1
+      
+      initDefaultDates()
+      loadHistorique()
     }
 
     // Calculer les statistiques
@@ -1080,6 +1169,8 @@ export default {
       
       // Filtres et états
       dateRange,
+      dateMin,
+      dateMax,
       selectedPoisson,
       statutFilter,
       searchQuery,
@@ -1120,7 +1211,9 @@ export default {
       toggleView,
       exportData,
       printDetails,
-      confirmDelete
+      confirmDelete,
+      onDateRangeChange,
+      resetFilters
     }
   }
 }
@@ -1157,7 +1250,7 @@ export default {
   display: flex;
   gap: 15px;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: flex-start;
 }
 
 .filter-group {
@@ -1172,7 +1265,7 @@ export default {
   font-size: 14px;
 }
 
-.filter-group select {
+.filter-group select, .date-input {
   padding: 10px 15px;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
@@ -1182,17 +1275,27 @@ export default {
   transition: border-color 0.2s;
 }
 
-.filter-group select:hover {
+.filter-group select:hover, .date-input:hover {
   border-color: #cbd5e0;
 }
 
-.filter-group select:focus {
+.filter-group select:focus, .date-input:focus {
   outline: none;
   border-color: #667eea;
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
-.btn-refresh, .btn-export {
+.date-range-filters {
+  display: flex;
+  gap: 15px;
+  align-items: flex-end;
+}
+
+.date-input {
+  cursor: text;
+}
+
+.btn-refresh, .btn-export, .btn-reset {
   padding: 10px 20px;
   border: none;
   border-radius: 8px;
@@ -1219,6 +1322,15 @@ export default {
 
 .btn-export:hover {
   background: #38a169;
+}
+
+.btn-reset {
+  background: #a0aec0;
+  color: white;
+}
+
+.btn-reset:hover {
+  background: #718096;
 }
 
 /* Statistiques */
@@ -1765,7 +1877,12 @@ export default {
     align-items: stretch;
   }
   
-  .filter-group select {
+  .filter-group select, .date-input {
+    width: 100%;
+  }
+  
+  .date-range-filters {
+    flex-direction: column;
     width: 100%;
   }
   
@@ -1803,4 +1920,3 @@ export default {
   }
 }
 </style>
-
