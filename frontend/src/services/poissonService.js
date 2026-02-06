@@ -3,13 +3,14 @@ import api from './api'
 const poissonService = {
   // Récupérer tous les poissons
   async getAllPoissons() {
-    try {
-      const response = await api.get('/poissons')
-      return response.data
-    } catch (error) {
-      console.error('Erreur récupération poissons:', error)
-      throw error
-    }
+      try {
+          const response = await api.get('/poissons')
+          console.log('Données reçues:', response.data) // AJOUTEZ CE LOG
+          return response.data
+      } catch (error) {
+          console.error('Erreur récupération poissons:', error)
+          throw error
+      }
   },
 
   // Récupérer les poissons en vie
