@@ -66,6 +66,29 @@
               </button>
             </div>
 
+            <!-- NOUVEAU : Sélection du bassin -->
+            <!-- Section bassin corrigée -->
+            <div class="form-group">
+              <label for="bassin">Bassin (optionnel)</label>
+              <select
+                id="bassin"
+                v-model="form.idPiscineActuel"
+                :class="{ 'error': errors.idPiscineActuel }"
+              >
+                <option value="">Sélectionner un bassin (optionnel)</option>
+                <option v-for="bassin in bassins" :key="bassin.idPiscine" :value="bassin.idPiscine">
+                  {{ bassin.nomPiscine }}
+                  <template v-if="bassin.capaciteMaxPiscine">
+                    (Capacité: {{ bassin.capaciteMaxPiscine }})
+                  </template>
+                </option>
+              </select>
+              <span v-if="errors.idPiscineActuel" class="error-message">{{ errors.idPiscineActuel }}</span>
+              <div class="input-info">
+                Vous pouvez assigner un bassin maintenant ou plus tard
+              </div>
+            </div>
+
             <div class="form-group">
               <label for="dateArrivee">Date d'arrivée *</label>
               <input
@@ -254,6 +277,10 @@
               <span class="summary-value">{{ getRaceName() || 'Non sélectionnée' }}</span>
             </div>
             <div class="summary-item">
+              <span class="summary-label">Bassin</span>
+              <span class="summary-value">{{ getBassinName() || 'Aucun' }}</span>
+            </div>
+            <div class="summary-item">
               <span class="summary-label">Poids</span>
               <span class="summary-value">{{ form.poidsInitialPoisson || 0 }}g → {{ form.poidsMaximalPoisson || 0 }}g</span>
             </div>
@@ -298,6 +325,9 @@
             <div class="preview-header">
               <div class="preview-name">{{ form.nomPoisson || 'Nouveau poisson' }}</div>
               <div class="preview-race">{{ getRaceName() || 'Race non définie' }}</div>
+              <div class="preview-bassin" v-if="getBassinName()">
+                🏊 {{ getBassinName() }}
+              </div>
             </div>
             
             <div class="preview-stats">
@@ -359,6 +389,10 @@
                 <span class="date-label">Date d'arrivée</span>
                 <span class="date-value">{{ formatDatePreview(form.dateArriveePoisson) }}</span>
               </div>
+              <div class="date-item" v-if="getBassinName()">
+                <span class="date-label">Bassin assigné</span>
+                <span class="date-value">{{ getBassinName() }}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -372,6 +406,7 @@
             <li>Le prix de vente doit être supérieur au prix d'achat pour faire un bénéfice</li>
             <li>La capacité d'augmentation dépend de la race (20g/jour pour Tilapia, 15g/jour pour Carpe)</li>
             <li>Un poisson est prêt à vendre quand il atteint 95% de son poids maximal</li>
+            <li>Vous pouvez assigner un bassin maintenant ou plus tard depuis la liste des poissons</li>
           </ul>
         </div>
       </div>
@@ -390,15 +425,18 @@
             <input
               type="text"
               id="newRaceName"
-              v-model="newRaceName"
+              v-model="newRaceData.nomRacePoisson"
               placeholder="Ex: Tilapia du Nil"
+              required
+              :class="{ 'error': raceErrors.nomRacePoisson }"
             />
+            <span v-if="raceErrors.nomRacePoisson" class="error-message">{{ raceErrors.nomRacePoisson }}</span>
           </div>
           <div class="form-group">
             <label for="newRaceDescription">Description</label>
             <textarea
               id="newRaceDescription"
-              v-model="newRaceDescription"
+              v-model="newRaceData.descriptionRacePoisson"
               placeholder="Description de la race..."
               rows="3"
             ></textarea>
@@ -408,8 +446,9 @@
           <button @click="showAddRaceModal = false" class="btn-cancel">
             Annuler
           </button>
-          <button @click="addNewRace" class="btn-submit">
-            Ajouter la race
+          <button @click="addNewRace" class="btn-submit" :disabled="isAddingRace">
+            <span v-if="isAddingRace" class="spinner"></span>
+            {{ isAddingRace ? 'Ajout en cours...' : 'Ajouter la race' }}
           </button>
         </div>
       </div>
@@ -431,6 +470,7 @@ export default {
     const form = ref({
       nomPoisson: '',
       idRacePoisson: '',
+      idPiscineActuel: '', // NOUVEAU: ID du bassin
       prixAchatPoisson: 0,
       prixVentePoisson: 0,
       poidsMaximalPoisson: 0,
@@ -443,27 +483,48 @@ export default {
 
     // État de l'application
     const races = ref([])
+    const bassins = ref([]) // NOUVEAU: Liste des bassins
     const errors = ref({})
     const isSubmitting = ref(false)
     const errorMessage = ref('')
     const successMessage = ref('')
     const showAddRaceModal = ref(false)
-    const newRaceName = ref('')
-    const newRaceDescription = ref('')
+    const newRaceData = ref({
+      nomRacePoisson: '',
+      descriptionRacePoisson: ''
+    })
+    const raceErrors = ref({})
+    const isAddingRace = ref(false)
 
     // Charger les données initiales
     const loadInitialData = async () => {
       try {
+        // Charger les races
         const racesData = await poissonService.getRacesPoisson()
         races.value = racesData
+        
+        // Charger les bassins
+        await loadBassins()
         
         // Si aucune race, proposer d'en créer une
         if (races.value.length === 0) {
           showAddRaceModal.value = true
         }
       } catch (error) {
-        console.error('Erreur chargement races:', error)
-        errorMessage.value = 'Impossible de charger les races'
+        console.error('Erreur chargement données:', error)
+        errorMessage.value = 'Impossible de charger les données initiales'
+      }
+    }
+
+    // Charger les bassins
+    const loadBassins = async () => {
+      try {
+        const bassinsData = await poissonService.getBassins()
+        bassins.value = bassinsData
+      } catch (error) {
+        console.error('Erreur chargement bassins:', error)
+        // Ne pas bloquer le formulaire si erreur de chargement des bassins
+        bassins.value = []
       }
     }
 
@@ -523,6 +584,11 @@ export default {
     const getRaceName = () => {
       const race = races.value.find(r => r.idRacePoisson == form.value.idRacePoisson)
       return race ? race.nomRacePoisson : ''
+    }
+
+    const getBassinName = () => {
+      const bassin = bassins.value.find(b => b.idPiscine == form.value.idPiscineActuel)
+      return bassin ? bassin.nomPiscine : ''
     }
 
     const getProgressionClass = (progression) => {
@@ -620,6 +686,16 @@ export default {
       return Object.keys(errors.value).length === 0
     }
 
+    const validateRaceForm = () => {
+      raceErrors.value = {}
+      
+      if (!newRaceData.value.nomRacePoisson.trim()) {
+        raceErrors.value.nomRacePoisson = 'Le nom de la race est requis'
+      }
+      
+      return Object.keys(raceErrors.value).length === 0
+    }
+
     const submitForm = async () => {
       if (!validateForm()) {
         errorMessage.value = 'Veuillez corriger les erreurs dans le formulaire'
@@ -648,6 +724,13 @@ export default {
           estVenduPoisson: false
         }
 
+        // Ajouter le bassin si sélectionné
+        if (form.value.idPiscineActuel) {
+          poissonData.piscineActuelle = {
+            idPiscine: form.value.idPiscineActuel
+          }
+        }
+
         // Appeler l'API
         await poissonService.createPoisson(poissonData)
         
@@ -672,6 +755,7 @@ export default {
       form.value = {
         nomPoisson: '',
         idRacePoisson: '',
+        idPiscineActuel: '',
         prixAchatPoisson: 0,
         prixVentePoisson: 0,
         poidsMaximalPoisson: 0,
@@ -688,36 +772,53 @@ export default {
     }
 
     const addNewRace = async () => {
-      if (!newRaceName.value.trim()) {
-        alert('Le nom de la race est requis')
+      if (!validateRaceForm()) {
         return
       }
 
+      isAddingRace.value = true
+      
       try {
         const raceData = {
-          nomRacePoisson: newRaceName.value,
-          descriptionRacePoisson: newRaceDescription.value,
+          nomRacePoisson: newRaceData.value.nomRacePoisson,
+          descriptionRacePoisson: newRaceData.value.descriptionRacePoisson,
           estActifRacePoisson: true
         }
 
-        // Note: Vous devrez créer un service pour créer des races
-        // Pour l'instant, on ajoute à la liste locale
-        const newRace = {
-          idRacePoisson: races.value.length + 1,
-          ...raceData
+        // Utiliser le service pour créer la race
+        const response = await fetch('http://localhost:8080/races-poisson', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(raceData)
+        })
+
+        if (!response.ok) {
+          throw new Error('Erreur lors de la création de la race')
         }
+
+        const newRace = await response.json()
         
+        // Ajouter la nouvelle race à la liste
         races.value.push(newRace)
         form.value.idRacePoisson = newRace.idRacePoisson
         
-        newRaceName.value = ''
-        newRaceDescription.value = ''
+        // Réinitialiser le formulaire de race
+        newRaceData.value = {
+          nomRacePoisson: '',
+          descriptionRacePoisson: ''
+        }
+        raceErrors.value = {}
         showAddRaceModal.value = false
         
         successMessage.value = 'Race ajoutée avec succès'
+        
       } catch (error) {
         console.error('Erreur ajout race:', error)
-        errorMessage.value = 'Erreur lors de l\'ajout de la race'
+        errorMessage.value = 'Erreur lors de l\'ajout de la race: ' + error.message
+      } finally {
+        isAddingRace.value = false
       }
     }
 
@@ -726,27 +827,19 @@ export default {
       loadInitialData()
     })
 
-    // Watchers pour les validations en temps réel
-    const watchFields = () => {
-      // Réinitialiser les erreurs quand l'utilisateur corrige
-      Object.keys(form.value).forEach(field => {
-        if (errors.value[field] && form.value[field]) {
-          delete errors.value[field]
-        }
-      })
-    }
-
     return {
       // État
       form,
       races,
+      bassins,
       errors,
+      raceErrors,
       isSubmitting,
+      isAddingRace,
       errorMessage,
       successMessage,
       showAddRaceModal,
-      newRaceName,
-      newRaceDescription,
+      newRaceData,
       
       // Computed
       progressionInitiale,
@@ -760,6 +853,7 @@ export default {
       
       // Méthodes
       getRaceName,
+      getBassinName,
       getProgressionClass,
       getStatusClass,
       formatCurrency,
@@ -773,592 +867,43 @@ export default {
 </script>
 
 <style scoped>
-.nouveau-poisson {
-  padding: 20px;
-  background: #f7fafc;
-  min-height: 100vh;
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 30px;
-  background: white;
-  padding: 25px;
-  border-radius: 12px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-}
-
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-}
-
-.btn-back {
-  color: #4a5568;
-  text-decoration: none;
-  font-weight: 600;
-  padding: 10px 15px;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  transition: all 0.2s;
-}
-
-.btn-back:hover {
-  background: #f7fafc;
-  border-color: #cbd5e0;
-}
-
-.page-header h1 {
-  margin: 0;
-  color: #2d3748;
-  font-size: 28px;
-}
-
-.btn-reset {
-  padding: 10px 20px;
-  background: #e2e8f0;
-  color: #4a5568;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 600;
-  transition: all 0.2s;
-}
-
-.btn-reset:hover:not(:disabled) {
-  background: #cbd5e0;
-}
-
-.btn-reset:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* Alertes */
-.alert {
-  padding: 15px 20px;
-  border-radius: 8px;
-  margin-bottom: 20px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.alert.error {
-  background: #fed7d7;
-  color: #742a2a;
-  border-left: 4px solid #f56565;
-}
-
-.alert.success {
-  background: #c6f6d5;
-  color: #22543d;
-  border-left: 4px solid #48bb78;
-}
-
-.alert-icon {
-  font-size: 20px;
-}
-
-.alert-close {
-  margin-left: auto;
-  background: none;
-  border: none;
-  font-size: 20px;
-  cursor: pointer;
-  color: inherit;
-}
-
-/* Formulaire */
-.form-container {
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 30px;
-}
-
-.poisson-form {
-  background: white;
-  padding: 30px;
-  border-radius: 12px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-}
-
-.form-section {
-  margin-bottom: 40px;
-  padding-bottom: 30px;
-  border-bottom: 1px solid #e2e8f0;
-}
-
-.form-section:last-child {
-  border-bottom: none;
-}
-
-.form-section h2 {
-  margin: 0 0 25px 0;
-  color: #2d3748;
-  font-size: 20px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.form-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 25px;
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.form-group label {
-  font-weight: 600;
-  color: #4a5568;
-  font-size: 14px;
-}
-
-.form-group input,
-.form-group select,
-.form-group textarea {
-  padding: 12px 15px;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  font-size: 16px;
-  transition: all 0.2s;
-}
-
-.form-group input:focus,
-.form-group select:focus,
-.form-group textarea:focus {
-  outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-}
-
-.form-group input.error,
-.form-group select.error {
-  border-color: #f56565;
-}
-
-.error-message {
-  color: #f56565;
-  font-size: 14px;
-  margin-top: 5px;
-}
-
-.input-info {
-  font-size: 12px;
-  color: #718096;
-  margin-top: 5px;
-}
-
-.btn-link {
-  background: none;
-  border: none;
-  color: #4299e1;
-  cursor: pointer;
-  padding: 5px 0;
-  text-align: left;
-  font-size: 14px;
-}
-
-.btn-link:hover {
-  text-decoration: underline;
-}
-
-/* Indicateur de progression */
-.progress-indicator {
-  padding: 15px;
-  background: #f7fafc;
-  border-radius: 8px;
-}
-
-.progress-bar {
-  height: 10px;
-  background: #e2e8f0;
-  border-radius: 5px;
-  overflow: hidden;
-  margin: 10px 0;
-}
-
-.progress-fill {
-  height: 100%;
-  transition: width 0.3s;
-}
-
-.progress-high { background: #48bb78; }
-.progress-medium { background: #ed8936; }
-.progress-low { background: #ecc94b; }
-.progress-very-low { background: #f56565; }
-
-.progress-text {
-  font-weight: bold;
-  color: #2d3748;
-}
-
-/* Prévisualisation bénéfice */
-.profit-preview {
-  padding: 15px;
-  background: #f7fafc;
-  border-radius: 8px;
-}
-
-.profit-value {
-  font-size: 24px;
-  font-weight: bold;
-  margin: 10px 0;
-}
-
-.profit-positive { color: #48bb78; }
-.profit-negative { color: #f56565; }
-.profit-neutral { color: #4a5568; }
-
-.profit-details {
-  display: flex;
-  gap: 15px;
-  font-size: 14px;
-  color: #718096;
-}
-
-/* Checkboxes */
-.checkbox-label {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  cursor: pointer;
-  user-select: none;
-}
-
-.checkbox-label input {
-  display: none;
-}
-
-.checkmark {
-  width: 20px;
-  height: 20px;
-  border: 2px solid #cbd5e0;
-  border-radius: 4px;
-  position: relative;
-  transition: all 0.2s;
-}
-
-.checkbox-label input:checked + .checkmark {
-  background: #4299e1;
-  border-color: #4299e1;
-}
-
-.checkbox-label input:checked + .checkmark::after {
-  content: '✓';
-  position: absolute;
-  color: white;
-  font-size: 14px;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-}
-
-/* Résumé */
-.summary {
-  background: #f7fafc;
-  padding: 25px;
-  border-radius: 8px;
-}
-
-.summary-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 20px;
-}
-
-.summary-item {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-
-.summary-label {
-  font-size: 14px;
-  color: #718096;
-}
-
-.summary-value {
-  font-weight: 600;
-  color: #2d3748;
-  font-size: 16px;
-}
-
-/* Actions du formulaire */
-.form-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 15px;
-  margin-top: 40px;
-  padding-top: 30px;
-  border-top: 1px solid #e2e8f0;
-}
-
-.btn-cancel {
-  padding: 12px 24px;
-  background: #e2e8f0;
-  color: #4a5568;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 600;
-  text-decoration: none;
-  text-align: center;
-  transition: all 0.2s;
-}
-
-.btn-cancel:hover {
-  background: #cbd5e0;
-}
-
-.btn-submit {
-  padding: 12px 24px;
-  background: #48bb78;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 600;
-  transition: all 0.2s;
-}
-
-.btn-submit:hover:not(:disabled) {
-  background: #38a169;
-}
-
-.btn-submit:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.spinner {
-  display: inline-block;
-  width: 16px;
-  height: 16px;
-  border: 2px solid rgba(255,255,255,0.3);
-  border-radius: 50%;
-  border-top-color: white;
-  animation: spin 1s ease-in-out infinite;
-  margin-right: 8px;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-/* Aperçu */
-.preview-container {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.preview-card {
-  background: white;
-  padding: 25px;
-  border-radius: 12px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-}
-
-.preview-card h3 {
-  margin: 0 0 20px 0;
-  color: #2d3748;
-}
-
-.preview-header {
-  margin-bottom: 20px;
-  padding-bottom: 15px;
-  border-bottom: 1px solid #e2e8f0;
-}
-
-.preview-name {
-  font-size: 24px;
-  font-weight: bold;
-  color: #2d3748;
-  margin-bottom: 5px;
-}
-
-.preview-race {
-  color: #718096;
+/* Styles spécifiques pour le nouveau select bassin */
+.form-group select option:disabled {
+  color: #999;
   font-style: italic;
 }
 
-.preview-stats {
-  margin-bottom: 20px;
-}
-
-.stat-item {
-  display: flex;
-  justify-content: space-between;
+.preview-bassin {
+  margin-top: 5px;
+  padding: 5px 10px;
+  background-color: #e3f2fd;
+  border-radius: 4px;
+  color: #1565c0;
+  font-size: 14px;
+  display: inline-flex;
   align-items: center;
-  margin-bottom: 10px;
+  gap: 5px;
 }
 
-.stat-label {
-  color: #718096;
+/* Style pour les options de bassin avec capacité */
+select option[value=""] {
+  font-style: italic;
+  color: #666;
 }
 
-.stat-value {
-  font-weight: 600;
-  color: #2d3748;
-}
-
-.progress-container {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.progress-bar-small {
-  flex: 1;
-  height: 6px;
-  background: #e2e8f0;
-  border-radius: 3px;
-  overflow: hidden;
-}
-
-.progress-fill-small {
-  height: 100%;
-  background: #48bb78;
-  transition: width 0.3s;
-}
-
-.progress-percent {
-  font-weight: 600;
-  color: #2d3748;
-  min-width: 45px;
-}
-
-.preview-financial {
-  background: #f7fafc;
-  padding: 15px;
-  border-radius: 8px;
-  margin-bottom: 20px;
-}
-
-.financial-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-}
-
-.financial-item:last-child {
-  margin-bottom: 0;
-}
-
-.financial-label {
-  color: #4a5568;
-}
-
-.financial-value {
+/* Surligner les bassins presque pleins */
+.bassin-warning {
+  color: #ff6b6b;
   font-weight: bold;
 }
 
-.financial-value.cost { color: #f56565; }
-.financial-value.sale { color: #48bb78; }
-
-.preview-status {
-  margin-bottom: 20px;
+/* Améliorer l'affichage des options */
+select option {
+  padding: 8px;
 }
 
-.status-badges {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.status-badge {
-  padding: 6px 12px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.status-alive { background: #c6f6d5; color: #22543d; }
-.status-dead { background: #fed7d7; color: #742a2a; }
-.status-fed { background: #bee3f8; color: #2c5282; }
-.status-hungry { background: #feebc8; color: #744210; }
-.status-ready { background: #d6bcfa; color: #553c9a; }
-.status-growing { background: #c6f6d5; color: #22543d; }
-
-.preview-dates {
-  padding-top: 15px;
-  border-top: 1px solid #e2e8f0;
-}
-
-.date-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.date-label {
-  color: #718096;
-  font-size: 14px;
-}
-
-.date-value {
-  font-weight: 600;
-  color: #2d3748;
-}
-
-/* Conseils */
-.tips-card {
-  background: #e6fffa;
-  padding: 25px;
-  border-radius: 12px;
-  border-left: 4px solid #38b2ac;
-}
-
-.tips-card h3 {
-  margin: 0 0 15px 0;
-  color: #2d3748;
-}
-
-.tips-list {
-  margin: 0;
-  padding-left: 20px;
-  color: #4a5568;
-}
-
-.tips-list li {
-  margin-bottom: 10px;
-  line-height: 1.5;
-}
-
-.tips-list li:last-child {
-  margin-bottom: 0;
-}
-
-/* Modale */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0,0,0,0.5);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-}
-
+/* Animation pour la modal race */
 .modal {
-  background: white;
-  border-radius: 12px;
-  width: 90%;
-  max-width: 500px;
   animation: modalSlide 0.3s ease;
 }
 
@@ -1370,82 +915,6 @@ export default {
   to {
     opacity: 1;
     transform: translateY(0);
-  }
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px;
-  border-bottom: 1px solid #e2e8f0;
-}
-
-.modal-header h3 {
-  margin: 0;
-  color: #2d3748;
-}
-
-.modal-close {
-  background: none;
-  border: none;
-  font-size: 24px;
-  cursor: pointer;
-  color: #718096;
-  line-height: 1;
-}
-
-.modal-close:hover {
-  color: #f56565;
-}
-
-.modal-body {
-  padding: 20px;
-}
-
-.modal-footer {
-  padding: 20px;
-  border-top: 1px solid #e2e8f0;
-  display: flex;
-  justify-content: flex-end;
-  gap: 15px;
-}
-
-/* Responsive */
-@media (max-width: 1024px) {
-  .form-container {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 768px) {
-  .page-header {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 15px;
-  }
-  
-  .header-left {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 10px;
-  }
-  
-  .form-grid {
-    grid-template-columns: 1fr;
-  }
-  
-  .form-actions {
-    flex-direction: column;
-  }
-  
-  .summary-grid {
-    grid-template-columns: 1fr;
-  }
-  
-  .modal {
-    width: 95%;
-    margin: 10px;
   }
 }
 </style>
