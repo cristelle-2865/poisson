@@ -548,27 +548,33 @@ export default {
 
     // Basculer état nourri
     const toggleNourri = async (poisson) => {
-    try {
-      // Mettre à jour l'API
-      await poissonService.updatePoisson(poisson.idPoisson, {
-        estRassasiePoisson: !poisson.estRassasiePoisson
-      })
-      
-      // Mettre à jour localement SANS recharger tout
-      const index = poissons.value.findIndex(p => p.idPoisson === poisson.idPoisson)
-      if (index !== -1) {
-        // Mettre à jour le poisson dans la liste principale
-        poissons.value[index].estRassasiePoisson = !poisson.estRassasiePoisson
+      try {
+        const newState = !poisson.estRassasiePoisson
         
-        // Réappliquer les filtres
-        filterPoissons()
+        // Pré-mettre à jour l'interface pour un feedback immédiat
+        const originalState = poisson.estRassasiePoisson
+        poisson.estRassasiePoisson = newState
+        filteredPoissons.value = [...filteredPoissons.value] // forcer l'update réactif
+        
+        // Envoyer la requête au serveur
+        await poissonService.updatePoisson(poisson.idPoisson, {
+          ...poisson,
+          estRassasiePoisson: newState
+        })
+        
+        // Optionnel : recharger pour s'assurer de la synchronisation
+        setTimeout(() => {
+          loadData()
+        }, 500) // petit délai pour éviter le flash
+        
+      } catch (error) {
+        console.error('Erreur mise à jour:', error)
+        alert('Erreur lors de la mise à jour')
+        // Revenir à l'état précédent en cas d'erreur
+        poisson.estRassasiePoisson = originalState
+        filteredPoissons.value = [...filteredPoissons.value]
       }
-    } catch (error) {
-      console.error('Erreur mise à jour:', error)
-      alert('Erreur lors de la mise à jour')
     }
-  }
-
     // Vendre un poisson
     const vendrePoisson = async (id) => {
       if (confirm('Vendre ce poisson ?')) {
