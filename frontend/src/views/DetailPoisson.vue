@@ -40,6 +40,7 @@
       </div>
     </div>
 
+    
     <!-- Statistiques principales -->
     <div class="main-stats">
       <div class="stat-card">
