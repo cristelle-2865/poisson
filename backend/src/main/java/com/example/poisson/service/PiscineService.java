@@ -1,5 +1,6 @@
 package com.example.poisson.service;
 
+import com.example.poisson.dto.PiscineDTO;
 import com.example.poisson.model.AffectationPiscine;
 import com.example.poisson.model.Piscine;
 import com.example.poisson.model.Poisson;
@@ -16,6 +17,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -24,6 +26,12 @@ public class PiscineService {
     private final PiscineRepository piscineRepository;
     private final PoissonRepository poissonRepository;
     private final AffectationPiscineRepository affectationPiscineRepository;
+
+    public List<PiscineDTO> getAllPiscinesAsDTO() {
+        return piscineRepository.findAll().stream()
+                .map(PiscineDTO::new)
+                .collect(Collectors.toList());
+    }
     
     public List<Piscine> getAllPiscines() {
         return piscineRepository.findAll();

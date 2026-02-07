@@ -1,6 +1,7 @@
 // PiscineController.java
 package com.example.poisson.controller;
 
+import com.example.poisson.dto.PiscineDTO;
 import com.example.poisson.model.AffectationPiscine;
 import com.example.poisson.model.Piscine;
 import com.example.poisson.model.Poisson;
@@ -21,8 +22,8 @@ public class PiscineController {
     private final PiscineService piscineService;
     
     @GetMapping
-    public ResponseEntity<List<Piscine>> getAllPiscines() {
-        return ResponseEntity.ok(piscineService.getAllPiscines());
+    public ResponseEntity<List<PiscineDTO>> getAllPiscines() {
+        return ResponseEntity.ok(piscineService.getAllPiscinesAsDTO());
     }
     
     @GetMapping("/actives")
