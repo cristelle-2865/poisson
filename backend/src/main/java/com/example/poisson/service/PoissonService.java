@@ -1,6 +1,7 @@
 package com.example.poisson.service;
 
 import com.example.poisson.model.AffectationPiscine;
+import com.example.poisson.dto.PoissonDetailDTO; 
 import com.example.poisson.model.Piscine;
 import com.example.poisson.model.Poisson;
 import com.example.poisson.repository.AffectationPiscineRepository;
@@ -49,6 +50,22 @@ public class PoissonService {
             .orElseThrow(() -> new RuntimeException("Poisson non trouvé avec l'ID: " + id));
     }
     
+    public Poisson getPoissonByIdWithRelations(Long id) {
+        Poisson poisson = poissonRepository.findById(id)
+            .orElseThrow(() -> new RuntimeException("Poisson non trouvé avec l'ID: " + id));
+        
+        // Initialiser les relations si nécessaire (pour éviter LazyInitializationException)
+        // Pour les relations ManyToOne, JPA les charge généralement automatiquement
+        // Cette méthode est utile pour forcer le chargement des collections si nécessaire
+        
+        return poisson;
+    }
+
+    public PoissonDetailDTO getPoissonDetail(Long id) {
+        Poisson poisson = getPoissonByIdWithRelations(id);
+        return new PoissonDetailDTO(poisson);
+    }
+
     public Poisson createPoisson(Poisson poisson) {
         // S'assurer que le poids actuel = poids initial
         poisson.setPoidsActuelPoisson(poisson.getPoidsInitialPoisson());

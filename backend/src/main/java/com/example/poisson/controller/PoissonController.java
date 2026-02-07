@@ -1,5 +1,6 @@
 package com.example.poisson.controller;
 
+import com.example.poisson.dto.PoissonDetailDTO; // AJOUTER CET IMPORT
 import com.example.poisson.model.Poisson;
 import com.example.poisson.service.PoissonService;
 import lombok.RequiredArgsConstructor;
@@ -91,6 +92,18 @@ public class PoissonController {
             return ResponseEntity.ok(poissonService.updatePoissonWithBassin(poisson.getIdPoisson(), poisson));
         }
         return ResponseEntity.ok(poissonService.createPoisson(poisson));
+    }
+
+    // Optionnel - garder pour compatibilité
+    @GetMapping("/{id}/avec-relations")
+    public ResponseEntity<Poisson> getPoissonAvecRelations(@PathVariable Long id) {
+        return ResponseEntity.ok(poissonService.getPoissonByIdWithRelations(id));
+    }
+
+    // Nouvel endpoint pour les détails avec DTO
+    @GetMapping("/{id}/detail")
+    public ResponseEntity<PoissonDetailDTO> getPoissonDetail(@PathVariable Long id) {
+        return ResponseEntity.ok(poissonService.getPoissonDetail(id));
     }
 }
 

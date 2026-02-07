@@ -8,6 +8,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 @Entity
 @Table(name = "poisson")
@@ -21,6 +22,7 @@ public class Poisson {
     
     @ManyToOne
     @JoinColumn(name = "id_racepoisson", nullable = false)
+    @JsonIgnoreProperties({"poissons"}) // Éviter la récursion
     private RacePoisson racePoisson;
     
     @Column(name = "nom_poisson", nullable = false, length = 100)
@@ -68,6 +70,7 @@ public class Poisson {
     // Relation avec le bassin actuel
     @ManyToOne
     @JoinColumn(name = "id_piscine_actuel")
+    @JsonIgnoreProperties({"poissons", "affectationsPiscine"}) // Éviter la récursion infinie
     private Piscine piscineActuelle;
     
     // Relation avec l'historique des bassins
