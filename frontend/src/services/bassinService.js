@@ -5,7 +5,8 @@ const bassinService = {
     async getAll() {
         try {
             const response = await api.get('/piscines');
-            return response.data;
+            console.log('Réponse API piscines:', response); // Debug
+            return response.data; // Doit être un tableau
         } catch (error) {
             console.error('Erreur récupération bassins:', error);
             throw error;

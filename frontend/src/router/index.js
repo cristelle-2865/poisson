@@ -72,6 +72,8 @@ const routes = [
           breadcrumb: 'Bassins'
         }
       },
+
+      
       {
         path: 'bassins/nouveau',
         name: 'NouveauBassin',
