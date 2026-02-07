@@ -19,7 +19,10 @@ public class PoissonController {
     
     @GetMapping
     public ResponseEntity<List<Poisson>> getAllPoissons() {
-        return ResponseEntity.ok(poissonService.getAllPoissons());
+        List<Poisson> poissons = poissonService.getAllPoissons();
+        System.out.println("Nombre de poissons retournés: " + poissons.size());
+        poissons.forEach(p -> System.out.println("Poisson ID: " + p.getIdPoisson() + ", Nom: " + p.getNomPoisson()));
+        return ResponseEntity.ok(poissons);
     }
     
     @GetMapping("/en-vie")
