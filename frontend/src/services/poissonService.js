@@ -207,16 +207,6 @@ async createPoissonWithBassin(poissonData) {
     }
   },
 
-  async getBassins() {
-    try {
-      const response = await api.get('/api/piscines')
-      return response.data
-    } catch (error) {
-      console.error('Erreur lors de la récupération des bassins:', error)
-      throw error
-    } 
-  },
-
   async createBassin(bassinData) {
     try {      const response = await api.post('/api/piscines', bassinData)
       return response.data
