@@ -68,6 +68,26 @@
               <span v-if="errors.idRacePoisson" class="error-message">{{ errors.idRacePoisson }}</span>
             </div>
 
+            <!-- NOUVEAU CHAMP BASSIN -->
+            <div class="form-group">
+              <label for="bassin">Bassin actuel</label>
+              <select
+                id="bassin"
+                v-model="form.idPiscineActuelle"
+                :class="{ 'error': errors.idPiscineActuelle }"
+                :disabled="form.estVenduPoisson || !form.estEnViePoisson"
+              >
+                <option value="">Aucun bassin (hors stock)</option>
+                <option v-for="bassin in bassins" :key="bassin.idPiscine" :value="bassin.idPiscine">
+                  {{ bassin.nomPiscine }} (Capacité: {{ bassin.capaciteRestante || bassin.capaciteMaxPiscine }})
+                </option>
+              </select>
+              <span v-if="errors.idPiscineActuelle" class="error-message">{{ errors.idPiscineActuelle }}</span>
+              <div class="input-info" v-if="form.idPiscineActuelle">
+                {{ getBassinInfo() }}
+              </div>
+            </div>
+
             <div class="form-group">
               <label for="dateArrivee">Date d'arrivée *</label>
               <input
@@ -310,6 +330,11 @@
                   <span class="indicator-label">Commercial</span>
                   <span class="indicator-value">{{ form.estPretAVendre ? 'Prêt' : 'En élevage' }}</span>
                 </div>
+                <div class="indicator" :class="getHealthIndicatorClass('bassin')">
+                  <span class="indicator-icon">🏊</span>
+                  <span class="indicator-label">Bassin</span>
+                  <span class="indicator-value">{{ getBassinStatus() }}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -353,6 +378,10 @@
               <span class="action-icon">💰</span>
               <span>Vendre ce poisson</span>
             </button>
+            <button @click="transfererBassin" class="action-btn info" :disabled="!form.estEnViePoisson || form.estVenduPoisson">
+              <span class="action-icon">🔄</span>
+              <span>Transférer bassin</span>
+            </button>
             <button @click="duplicateFish" class="action-btn info">
               <span class="action-icon">📋</span>
               <span>Dupliquer</span>
@@ -381,6 +410,10 @@
             <div class="identity-item">
               <span class="label">Race:</span>
               <span class="value">{{ getRaceName() || 'Non définie' }}</span>
+            </div>
+            <div class="identity-item">
+              <span class="label">Bassin:</span>
+              <span class="value">{{ getBassinName() }}</span>
             </div>
             <div class="identity-item">
               <span class="label">Âge:</span>
@@ -434,6 +467,9 @@
             <span class="status-badge" :class="getStatusClass('nourri')">
               {{ form.estRassasiePoisson ? '✅ Rassasié' : '🍽️ Affamé' }}
             </span>
+            <span class="status-badge" :class="getStatusClass('bassin')">
+              {{ getBassinStatusBadge() }}
+            </span>
             <span class="status-badge" :class="getStatusClass('vente')">
               {{ form.estVenduPoisson ? '💰 Vendu' : form.estPretAVendre ? '🎯 Prêt à vendre' : '📈 En croissance' }}
             </span>
@@ -477,6 +513,10 @@
             <div class="update-item">
               <span class="label">Dernier repas:</span>
               <span class="value">{{ getLastFeeding() }}</span>
+            </div>
+            <div class="update-item" v-if="getBassinName() !== 'Non assigné'">
+              <span class="label">Bassin actuel:</span>
+              <span class="value">{{ getBassinName() }} depuis {{ getBassinDuration() }}</span>
             </div>
           </div>
         </div>
@@ -667,6 +707,41 @@
         </div>
       </div>
     </div>
+
+    <!-- Modale transfert bassin -->
+    <div v-if="showTransferModal" class="modal-overlay">
+      <div class="modal">
+        <div class="modal-header">
+          <h3>🔄 Transférer vers un autre bassin</h3>
+          <button @click="showTransferModal = false" class="modal-close">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="current-bassin" v-if="getBassinName() !== 'Non assigné'">
+            <p>Actuellement dans: <strong>{{ getBassinName() }}</strong></p>
+          </div>
+          <div class="form-group">
+            <label>Nouveau bassin *</label>
+            <select v-model="selectedBassinTransfer" required>
+              <option value="">Sélectionner un bassin</option>
+              <option v-for="bassin in bassins" :key="bassin.idPiscine" :value="bassin.idPiscine"
+                :disabled="bassin.idPiscine === form.idPiscineActuelle">
+                {{ bassin.nomPiscine }} ({{ bassin.capaciteRestante || bassin.capaciteMaxPiscine }} places disponibles)
+              </option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Raison du transfert</label>
+            <textarea v-model="transferReason" rows="3" placeholder="Ex: Surpopulation, nettoyage, regroupement..."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button @click="showTransferModal = false" class="btn-cancel">Annuler</button>
+          <button @click="confirmTransfer" class="btn-confirm" :disabled="!selectedBassinTransfer">
+            Transférer
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -687,12 +762,14 @@ export default {
     const loading = ref(false)
     const poisson = ref(null)
     const races = ref([])
+    const bassins = ref([]) // NOUVEAU: Liste des bassins
     const historique = ref([])
     
     // Formulaire
     const form = ref({
       nomPoisson: '',
       idRacePoisson: '',
+      idPiscineActuelle: '', // NOUVEAU: ID du bassin actuel
       prixAchatPoisson: 0,
       prixVentePoisson: 0,
       poidsMaximalPoisson: 0,
@@ -725,6 +802,7 @@ export default {
     const showFeedModal = ref(false)
     const showSellModal = ref(false)
     const showDeleteModal = ref(false)
+    const showTransferModal = ref(false) // NOUVEAU: Modale de transfert
     
     // Données modales
     const newWeight = ref(0)
@@ -734,15 +812,24 @@ export default {
     const foodTypes = ref([])
     const salePrice = ref(0)
     const deleteConfirmation = ref('')
+    const selectedBassinTransfer = ref('') // NOUVEAU: Bassin pour transfert
+    const transferReason = ref('') // NOUVEAU: Raison du transfert
 
     // Computed properties
     const isFormValid = computed(() => {
-      return form.value.nomPoisson &&
-             form.value.idRacePoisson &&
-             form.value.poidsActuelPoisson >= 0 &&
-             form.value.poidsMaximalPoisson > 0 &&
-             form.value.poidsActuelPoisson <= form.value.poidsMaximalPoisson &&
-             form.value.dateArriveePoisson
+      const baseValid = form.value.nomPoisson &&
+        form.value.idRacePoisson &&
+        form.value.poidsActuelPoisson >= 0 &&
+        form.value.poidsMaximalPoisson > 0 &&
+        form.value.poidsActuelPoisson <= form.value.poidsMaximalPoisson &&
+        form.value.dateArriveePoisson;
+      
+      // Pour les poissons en vie non vendus, vérifier s'ils ont un bassin
+      if (form.value.estEnViePoisson && !form.value.estVenduPoisson) {
+        return baseValid && form.value.idPiscineActuelle;
+      }
+      
+      return baseValid;
     })
 
     const weightDifference = computed(() => {
@@ -763,10 +850,11 @@ export default {
         const data = await poissonService.getPoissonById(id)
         poisson.value = data
         
-        // Initialiser le formulaire
+        // Initialiser le formulaire avec le bassin
         form.value = {
           nomPoisson: data.nomPoisson || '',
           idRacePoisson: data.racePoisson?.idRacePoisson || '',
+          idPiscineActuelle: data.piscineActuelle?.idPiscine || '', // Récupérer le bassin
           prixAchatPoisson: data.prixAchatPoisson || 0,
           prixVentePoisson: data.prixVentePoisson || 0,
           poidsMaximalPoisson: data.poidsMaximalPoisson || 0,
@@ -789,6 +877,7 @@ export default {
         
         // Charger les données supplémentaires
         await loadRaces()
+        await loadBassins() // NOUVEAU: Charger les bassins
         await loadHistorique()
         await loadFoodTypes()
         
@@ -808,6 +897,24 @@ export default {
         races.value = data
       } catch (error) {
         console.error('Erreur chargement races:', error)
+      }
+    }
+
+    // NOUVEAU: Charger les bassins
+    const loadBassins = async () => {
+      try {
+        // Vous devrez créer une méthode dans votre service pour récupérer les bassins
+        // Pour l'instant, on simule avec des données
+        const bassinsData = [
+          { idPiscine: 1, nomPiscine: 'Bassin principal', capaciteMaxPiscine: 100, capaciteRestante: 75 },
+          { idPiscine: 2, nomPiscine: 'Nourricerie', capaciteMaxPiscine: 50, capaciteRestante: 20 },
+          { idPiscine: 3, nomPiscine: 'Bassin d\'élevage', capaciteMaxPiscine: 80, capaciteRestante: 45 },
+          { idPiscine: 4, nomPiscine: 'Bassin de reproduction', capaciteMaxPiscine: 30, capaciteRestante: 10 }
+        ]
+        bassins.value = bassinsData
+      } catch (error) {
+        console.error('Erreur chargement bassins:', error)
+        bassins.value = []
       }
     }
 
@@ -978,6 +1085,10 @@ export default {
           if (progression.value >= 95) return 'status-max'
           if (progression.value >= 80) return 'status-excellent'
           return 'status-good'
+        case 'bassin':
+          if (!form.value.estEnViePoisson || form.value.estVenduPoisson) return 'status-inactive'
+          if (!form.value.idPiscineActuelle) return 'status-warning'
+          return 'status-active'
         default:
           return ''
       }
@@ -995,6 +1106,10 @@ export default {
         case 'vente':
           return form.value.estVenduPoisson ? 'indicator-sold' :
                  form.value.estPretAVendre ? 'indicator-ready' : 'indicator-growing'
+        case 'bassin':
+          if (!form.value.estEnViePoisson || form.value.estVenduPoisson) return 'indicator-inactive'
+          if (!form.value.idPiscineActuelle) return 'indicator-warning'
+          return 'indicator-good'
         default:
           return 'indicator-neutral'
       }
@@ -1012,6 +1127,48 @@ export default {
       return race ? race.nomRacePoisson : ''
     }
 
+    // NOUVEAU: Obtenir le nom du bassin
+    const getBassinName = () => {
+      const bassin = bassins.value.find(b => b.idPiscine == form.value.idPiscineActuelle)
+      return bassin ? bassin.nomPiscine : 'Non assigné'
+    }
+
+    // NOUVEAU: Obtenir les infos du bassin
+    const getBassinInfo = () => {
+      const bassin = bassins.value.find(b => b.idPiscine == form.value.idPiscineActuelle)
+      if (!bassin) return ''
+      return `Capacité: ${bassin.capaciteRestante || bassin.capaciteMaxPiscine} places disponibles`
+    }
+
+    // NOUVEAU: Statut du bassin
+    const getBassinStatus = () => {
+      if (!form.value.estEnViePoisson || form.value.estVenduPoisson) {
+        return 'Non applicable'
+      }
+      if (!form.value.idPiscineActuelle) {
+        return 'À assigner'
+      }
+      return getBassinName()
+    }
+
+    // NOUVEAU: Badge pour le statut du bassin
+    const getBassinStatusBadge = () => {
+      if (!form.value.estEnViePoisson || form.value.estVenduPoisson) {
+        return '🏠 Hors stock'
+      }
+      if (!form.value.idPiscineActuelle) {
+        return '❌ Sans bassin'
+      }
+      return '🏊 En bassin'
+    }
+
+    // NOUVEAU: Durée dans le bassin (simulée)
+    const getBassinDuration = () => {
+      // Simuler une durée aléatoire
+      const days = Math.floor(Math.random() * 30) + 1
+      return days === 1 ? '1 jour' : `${days} jours`
+    }
+
     const getLastFeeding = () => {
       if (historique.value.length === 0) return 'Jamais'
       const last = historique.value[0]
@@ -1023,6 +1180,8 @@ export default {
       if (form.value.estVenduPoisson) {
         form.value.dateVentePoisson = new Date().toISOString().split('T')[0]
         form.value.estPretAVendre = true
+        // Retirer du bassin si vendu
+        form.value.idPiscineActuelle = ''
       } else {
         form.value.dateVentePoisson = ''
       }
@@ -1033,6 +1192,8 @@ export default {
         form.value.estRassasiePoisson = false
         form.value.estPretAVendre = false
         form.value.estVenduPoisson = false
+        // Retirer du bassin si mort
+        form.value.idPiscineActuelle = ''
       }
     }
 
@@ -1058,6 +1219,10 @@ export default {
               racePoisson: {
                   idRacePoisson: form.value.idRacePoisson
               },
+              // Ajouter les infos du bassin
+              piscineActuelle: form.value.idPiscineActuelle ? {
+                  idPiscine: form.value.idPiscineActuelle
+              } : null,
               prixAchatPoisson: parseFloat(form.value.prixAchatPoisson) || 0,
               prixVentePoisson: parseFloat(form.value.prixVentePoisson) || 0,
               poidsMaximalPoisson: parseFloat(form.value.poidsMaximalPoisson) || 0,
@@ -1071,10 +1236,15 @@ export default {
               estPretAVendre: form.value.estPretAVendre
           }
 
-          console.log('📤 Données envoyées:', poissonData)
+          console.log('📤 Données envoyées avec bassin:', poissonData)
           
-          // Appeler l'API
-          const response = await poissonService.updatePoisson(route.params.id, poissonData)
+          // Utiliser la méthode avec bassin si elle existe, sinon la méthode normale
+          let response
+          if (poissonService.updateWithBassin) {
+            response = await poissonService.updateWithBassin(route.params.id, poissonData)
+          } else {
+            response = await poissonService.updatePoisson(route.params.id, poissonData)
+          }
           console.log('✅ Réponse:', response)
           
           successMessage.value = 'Poisson mis à jour avec succès !'
@@ -1146,6 +1316,13 @@ export default {
         errors.value.dateArriveePoisson = 'La date d\'arrivée est requise'
       }
 
+      // Bassin (si le poisson est en vie et non vendu)
+      if (form.value.estEnViePoisson && !form.value.estVenduPoisson) {
+        if (!form.value.idPiscineActuelle) {
+          errors.value.idPiscineActuelle = 'Le bassin est requis pour un poisson en vie'
+        }
+      }
+
       return Object.keys(errors.value).length === 0
     }
 
@@ -1160,7 +1337,6 @@ export default {
       calculateProgression()
       showWeightModal.value = false
       
-      // Enregistrer la raison dans un historique
       console.log('Ajustement poids:', weightAdjustmentReason.value)
     }
 
@@ -1188,7 +1364,6 @@ export default {
         return
       }
 
-      // Simuler l'ajout de poids basé sur la nourriture
       const gain = estimatedGain.value
       form.value.poidsActuelPoisson += gain
       form.value.estRassasiePoisson = true
@@ -1196,7 +1371,6 @@ export default {
       calculateProgression()
       showFeedModal.value = false
       
-      // Ici, vous appelleriez votre API pour enregistrer le nourrissage
       console.log('Nourrissage:', { amount: feedAmount.value, food: selectedFood.value, gain })
     }
 
@@ -1215,17 +1389,40 @@ export default {
       form.value.estPretAVendre = true
       form.value.dateVentePoisson = new Date().toISOString().split('T')[0]
       form.value.prixVentePoisson = salePrice.value
+      form.value.idPiscineActuelle = '' // Retirer du bassin
       
       showSellModal.value = false
       savePoisson()
     }
 
+    // NOUVEAU: Transférer le bassin
+    const transfererBassin = () => {
+      selectedBassinTransfer.value = form.value.idPiscineActuelle
+      transferReason.value = ''
+      showTransferModal.value = true
+    }
+
+    // NOUVEAU: Confirmer le transfert
+    const confirmTransfer = () => {
+      if (!selectedBassinTransfer.value) {
+        alert('Veuillez sélectionner un bassin')
+        return
+      }
+
+      form.value.idPiscineActuelle = selectedBassinTransfer.value
+      showTransferModal.value = false
+      savePoisson()
+      
+      console.log('Transfert bassin:', {
+        ancienBassin: getBassinName(),
+        nouveauBassinId: selectedBassinTransfer.value,
+        raison: transferReason.value
+      })
+    }
+
     const duplicateFish = () => {
       if (confirm(`Dupliquer le poisson "${form.value.nomPoisson}" ?`)) {
-        // Créer une copie avec un nom modifié
         const newName = `${form.value.nomPoisson}-copie`
-        
-        // Ici, vous appelleriez votre API pour créer une copie
         console.log('Duplication:', newName)
         alert('Fonctionnalité de duplication à implémenter')
       }
@@ -1270,12 +1467,26 @@ export default {
       calculateFinancials()
     })
 
+    // Watcher pour gérer le bassin quand le statut change
+    watch(() => form.value.estEnViePoisson, (newVal) => {
+      if (!newVal || form.value.estVenduPoisson) {
+        form.value.idPiscineActuelle = ''
+      }
+    })
+
+    watch(() => form.value.estVenduPoisson, (newVal) => {
+      if (newVal) {
+        form.value.idPiscineActuelle = ''
+      }
+    })
+
     return {
       // État
       loading,
       poisson,
       form,
       races,
+      bassins, // NOUVEAU
       historique,
       errors,
       errorMessage,
@@ -1296,6 +1507,7 @@ export default {
       showFeedModal,
       showSellModal,
       showDeleteModal,
+      showTransferModal, // NOUVEAU
       
       // Données modales
       newWeight,
@@ -1307,6 +1519,8 @@ export default {
       estimatedGain,
       salePrice,
       deleteConfirmation,
+      selectedBassinTransfer, // NOUVEAU
+      transferReason, // NOUVEAU
       
       // Méthodes
       formatCurrency,
@@ -1320,6 +1534,11 @@ export default {
       getHealthIndicatorClass,
       getGrowthRateClass,
       getRaceName,
+      getBassinName, // NOUVEAU
+      getBassinInfo, // NOUVEAU
+      getBassinStatus, // NOUVEAU
+      getBassinStatusBadge, // NOUVEAU
+      getBassinDuration, // NOUVEAU
       getLastFeeding,
       calculateAge,
       handleVenduChange,
@@ -1334,6 +1553,8 @@ export default {
       feedFishNow,
       sellFish,
       confirmSell,
+      transfererBassin, // NOUVEAU
+      confirmTransfer, // NOUVEAU
       duplicateFish,
       showDeleteConfirm,
       confirmDelete,

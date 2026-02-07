@@ -151,14 +151,14 @@ const poissonService = {
   },
 
   // Récupérer tous les bassins (nouvelle méthode)
-  async getBassins() {
-    try {
-        const response = await api.get('/piscines')
-        return response.data
-    } catch (error) {
-        console.error('Erreur récupération bassins:', error)
-        return []
-    }
+ async getBassins() {
+  try {
+    const response = await api.get('/piscines')
+    return response.data
+  } catch (error) {
+    console.error('Erreur récupération bassins:', error)
+    return []
+  }
 },
 
 // Créer une race
@@ -205,7 +205,35 @@ async createPoissonWithBassin(poissonData) {
       console.error('Erreur récupération historique bassins:', error)
       return []
     }
+  },
+
+  async getBassins() {
+    try {
+      const response = await api.get('/api/piscines')
+      return response.data
+    } catch (error) {
+      console.error('Erreur lors de la récupération des bassins:', error)
+      throw error
+    } 
+  },
+
+  async createBassin(bassinData) {
+    try {      const response = await api.post('/api/piscines', bassinData)
+      return response.data
+    } catch (error) {    
+      console.error('Erreur lors de la création du bassin:', error)     
+      throw error   }
+  },    
+  async updatePoissonWithBassin(id, poissonData) {
+  try {    const response = await api.put(`/api/poissons/${id}/with-bassin`, poissonData)
+    return response.data
   }
+    catch (error) {
+    console.error('Erreur lors de la mise à jour du poisson avec bassin:', error)
+    throw error
+  } 
+},
+
 }
 
 export default poissonService
