@@ -558,6 +558,40 @@ async nourrirAvecPlat(platId) {
     
     throw new Error(JSON.stringify(errorDetails))
   }
+},
+
+async nourrirPoissonsDansBassin(quantitePlat, proteinesParKg, glucidesParKg, bassinId = null) {
+  try {
+    const params = {
+      quantitePlat,
+      proteinesParKg,
+      glucidesParKg
+    };
+    
+    // Ajouter bassinId seulement s'il est fourni
+    if (bassinId !== null && bassinId !== undefined) {
+      params.bassinId = bassinId;
+    }
+    
+    const response = await api.post('/nourrissage/nourrir-bassin', null, { params });
+    return response.data;
+    
+  } catch (error) {
+    console.error('❌ Erreur nourrissage bassin:', error);
+    
+    const errorMessage = error.response?.data?.message || error.message;
+    const errorDetails = {
+      message: `Erreur lors du nourrissage dans le bassin: ${errorMessage}`,
+      quantitePlat,
+      proteinesParKg,
+      glucidesParKg,
+      bassinId,
+      status: error.response?.status,
+      timestamp: new Date().toISOString()
+    };
+    
+    throw new Error(JSON.stringify(errorDetails));
+  }
 }
 
 }

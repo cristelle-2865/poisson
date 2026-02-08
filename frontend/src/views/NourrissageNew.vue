@@ -515,6 +515,18 @@ export default {
     const stats = ref({})
     const loading = ref(false)
     const resultatNourrissage = ref(null)
+
+     // Récupérer l'ID et le nom du bassin depuis les query params
+    const bassinId = ref(null)
+    const bassinNom = ref('')
+
+    // Initialiser les paramètres du bassin
+    onMounted(() => {
+      if (route.query.bassinId) {
+        bassinId.value = route.query.bassinId
+        bassinNom.value = route.query.bassinNom || ''
+      }
+    })
     
     // Sélections
     const modeNourrissage = ref('aliment') // 'aliment' ou 'plat'
@@ -533,63 +545,80 @@ export default {
     })
     
     // Charger les données
-    const loadData = async () => {
-  try {
-    // Récupérer l'ID du bassin depuis les query params
-    const bassinId = route.query.bassinId
-    const bassinNom = route.query.bassinNom
-    
-    if (bassinId) {
-      // Si un bassin est spécifié, on affiche son nom dans le titre
-      document.title = `Nourrissage - ${bassinNom || 'Bassin'}`
+   const loadData = async () => {
+      try {
+        // Charger les aliments
+        const alimentsData = await nourrissageService.getAliments()
+        aliments.value = alimentsData
+        if (alimentsData.length > 0 && modeNourrissage.value === 'aliment') {
+          selectedAlimentId.value = alimentsData[0].idAliment
+        }
+        
+        // Charger les plats disponibles
+        const platsData = await platService.getPlatsDisponibles()
+        platsDisponibles.value = platsData
+        if (platsData.length > 0 && modeNourrissage.value === 'plat') {
+          selectedPlatId.value = platsData[0].idPlat
+        }
+        
+        // MODIFIÉ : Charger les poissons selon le bassin ou tous
+        let poissonsData
+        if (bassinId.value) {
+          // Option 1: Récupérer les poissons du bassin spécifique
+          try {
+            poissonsData = await poissonService.getPoissonsByBassin(bassinId.value)
+          } catch (error) {
+            console.warn('Méthode getPoissonsByBassin non disponible, fallback sur getPoissonsAffames:', error)
+            // Fallback: Récupérer tous les poissons affamés
+            poissonsData = await poissonService.getPoissonsAffames()
+            // Puis filtrer localement (moins efficace mais fonctionnel)
+            // Note: Cette approche nécessite que les poissons aient un champ bassinId
+            // Si non, on ne peut pas filtrer côté frontend
+          }
+        } else {
+          // Charger tous les poissons affamés
+          poissonsData = await poissonService.getPoissonsAffames()
+        }
+        
+        // MODIFIÉ : Filtrer les poissons affamés et appartenant au bassin si spécifié
+        poissonsAffames.value = poissonsData.filter(poisson => {
+          // Vérifier si le poisson est affamé
+          const estAffame = !poisson.estRassasiePoisson && 
+                           !poisson.estVenduPoisson && 
+                           poisson.estEnViePoisson
+          
+          // Si un bassin est spécifié, vérifier que le poisson appartient à ce bassin
+          if (bassinId.value) {
+            // Vérifier selon la structure de données
+            const poissonBassinId = poisson.piscineActuelle?.idPiscine || 
+                                    poisson.idPiscine || 
+                                    poisson.bassinId
+            
+            return estAffame && (poissonBassinId == bassinId.value)
+          }
+          
+          return estAffame
+        })
+        
+        // MODIFIÉ : Mettre à jour les statistiques avec info bassin
+        const statsData = await poissonService.getStatistiques()
+        stats.value = {
+          ...statsData,
+          poissonsAffames: poissonsAffames.value.length,
+          bassinId: bassinId.value,
+          bassinNom: bassinNom.value || (bassinId.value ? `Bassin ${bassinId.value}` : '')
+        }
+        
+        // Mettre à jour le titre de la page
+        if (bassinId.value) {
+          document.title = `Nourrissage - ${bassinNom.value || 'Bassin ' + bassinId.value}`
+        }
+        
+      } catch (error) {
+        console.error('Erreur chargement données:', error)
+        alert('Impossible de charger les données')
+      }
     }
-    
-    // Charger les aliments
-    const alimentsData = await nourrissageService.getAliments()
-    aliments.value = alimentsData
-    if (alimentsData.length > 0 && modeNourrissage.value === 'aliment') {
-      selectedAlimentId.value = alimentsData[0].idAliment
-    }
-    
-    // Charger les plats disponibles
-    const platsData = await platService.getPlatsDisponibles()
-    platsDisponibles.value = platsData
-    if (platsData.length > 0 && modeNourrissage.value === 'plat') {
-      selectedPlatId.value = platsData[0].idPlat
-    }
-    
-    // MODIFIÉ : Charger les poissons affamés selon le bassin
-    let poissonsData
-    if (bassinId) {
-      // Récupérer les poissons du bassin spécifique
-      poissonsData = await poissonService.getPoissonsByBassin(bassinId)
-      // Filtrer pour ne garder que les affamés
-      poissonsData = poissonsData.filter(poisson => 
-        !poisson.estRassasiePoisson && 
-        !poisson.estVenduPoisson && 
-        poisson.estEnViePoisson
-      )
-    } else {
-      // Charger tous les poissons affamés (comportement par défaut)
-      poissonsData = await poissonService.getPoissonsAffames()
-    }
-    
-    poissonsAffames.value = poissonsData
-    
-    // Charger les statistiques
-    const statsData = await poissonService.getStatistiques()
-    stats.value = {
-      ...statsData,
-      poissonsAffames: poissonsAffames.value.length,
-      bassinId: bassinId,
-      bassinNom: bassinNom
-    }
-    
-  } catch (error) {
-    console.error('Erreur chargement données:', error)
-    alert('Impossible de charger les données')
-  }
-}
 
     
     // Aliment ou Plat sélectionné
@@ -899,7 +928,7 @@ const executerNourrissage = async () => {
     let result
     
     if (modeNourrissage.value === 'plat' && selectedPlat.value) {
-      // Nourrir avec un plat - APPELER LA NOUVELLE MÉTHODE
+      // Nourrir avec un plat
       console.log('Nourrissage avec plat:', selectedPlat.value.idPlat)
       result = await nourrissageService.nourrirAvecPlat(selectedPlat.value.idPlat)
       
@@ -907,28 +936,40 @@ const executerNourrissage = async () => {
       // Nourrir avec un aliment (personnalisé ou existant)
       const alimentData = showCustomAliment.value ? customAliment.value : selectedAliment.value
       
-      console.log('Nourrissage avec aliment:', {
-        quantite: quantitePlat.value,
-        proteines: alimentData.proteinesParKg || alimentData.proteinesParKgAliment,
-        glucides: alimentData.glucidesParKg || alimentData.glucidesParKgAliment
-      })
-      
-      // Convertir kg en grammes pour l'API si nécessaire
-      // Vérifiez si votre API attend des kg ou des g
-      result = await nourrissageService.nourrirPoissons(
-        quantitePlat.value, // en kg
-        alimentData.proteinesParKg || alimentData.proteinesParKgAliment,
-        alimentData.glucidesParKg || alimentData.glucidesParKgAliment
-      )
+      // MODIFICATION : Utiliser la nouvelle méthode qui accepte l'ID du bassin
+      if (bassinId.value) {
+        // Nourrir uniquement les poissons du bassin spécifié
+        result = await nourrissageService.nourrirPoissonsDansBassin(
+          quantitePlat.value,
+          alimentData.proteinesParKg || alimentData.proteinesParKgAliment,
+          alimentData.glucidesParKg || alimentData.glucidesParKgAliment,
+          bassinId.value
+        )
+      } else {
+        // Nourrir tous les poissons (comportement par défaut)
+        result = await nourrissageService.nourrirPoissons(
+          quantitePlat.value,
+          alimentData.proteinesParKg || alimentData.proteinesParKgAliment,
+          alimentData.glucidesParKg || alimentData.glucidesParKgAliment
+        )
+      }
+    }
+    
+    // Personnaliser le message selon le bassin
+    let message = result.message || `Nourrissage réussi !`
+    if (bassinId.value) {
+      message = `${message} (Bassin: ${bassinNom.value || bassinId.value})`
     }
     
     // Afficher le résultat
     resultatNourrissage.value = {
-      message: result.message || `Nourrissage réussi !`,
+      message: message,
       poissonsNourris: result.poissonsNourris || stats.value.poissonsAffames,
       nourritureUtilisee: result.nourritureUtilisee || quantitePlat.value,
       gainTotal: result.gainTotal || gainTotalPrevu.value,
       coutTotal: result.coutTotal || coutTotal.value,
+      bassinId: bassinId.value,
+      bassinNom: bassinNom.value,
       details: poissonsAffames.value.map(p => ({
         id: p.idPoisson,
         nom: p.nomPoisson,
@@ -938,6 +979,9 @@ const executerNourrissage = async () => {
     
     if (modeNourrissage.value === 'plat' && selectedPlat.value) {
       resultatNourrissage.value.message = `Plat "${selectedPlat.value.nomPlat}" utilisé avec succès !`
+      if (bassinId.value) {
+        resultatNourrissage.value.message += ` (Bassin: ${bassinNom.value || bassinId.value})`
+      }
     }
     
     // Recharger les données
@@ -990,6 +1034,8 @@ const executerNourrissage = async () => {
       stats,
       loading,
       resultatNourrissage,
+      bassinId,
+      bassinNom,
       
       // Sélections
       modeNourrissage,
