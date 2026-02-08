@@ -19,7 +19,7 @@ import java.util.Map;
 @Slf4j
 @Validated
 @RestController
-@RequestMapping("/api/plats")
+@RequestMapping("/plats")
 @RequiredArgsConstructor
 @CrossOrigin(origins = "http://localhost:5173")
 public class PlatController {
