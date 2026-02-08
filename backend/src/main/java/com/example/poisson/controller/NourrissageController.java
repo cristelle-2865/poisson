@@ -40,10 +40,17 @@ public class NourrissageController {
         return ResponseEntity.ok(result);
     }
 
-     @PostMapping("/nourrir-avec-plat/{idPlat}")
+    @PostMapping("/nourrir-avec-plat/{idPlat}")
     public ResponseEntity<Map<String, Object>> nourrirAvecPlat(@PathVariable Long idPlat) {
-        Map<String, Object> result = nourrissageService.nourrirAvecPlat(idPlat);
-        return ResponseEntity.ok(result);
+        try {
+            Map<String, Object> result = nourrissageService.nourrirAvecPlat(idPlat);
+            return ResponseEntity.ok(result);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "message", e.getMessage(),
+                "error", true
+            ));
+        }
     }
 }
 
