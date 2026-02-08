@@ -54,7 +54,7 @@ public class PlatService {
         // Valider le DTO
         validatePlatDto(platDto);
         
-        // Créer le plat
+        // 1. Créer le plat de base
         Plat plat = new Plat();
         plat.setNomPlat(platDto.getNomPlat().trim());
         plat.setDescriptionPlat(platDto.getDescriptionPlat() != null ? platDto.getDescriptionPlat().trim() : null);
@@ -65,20 +65,44 @@ public class PlatService {
             ? platDto.getEstUtilisePlat() 
             : false);
         
-        // Sauvegarder d'abord le plat
-        Plat savedPlat = platRepository.save(plat);
-        log.info("Plat {} créé avec ID: {}", savedPlat.getNomPlat(), savedPlat.getIdPlat());
+        // IMPORTANT : Initialiser la liste des compositions
+        plat.setCompositions(new ArrayList<>());
         
-        // Ajouter les compositions
+        log.info("Plat créé (avant compositions): {}", plat.getNomPlat());
+        
+        // 2. Sauvegarder d'abord le plat (pour avoir un ID)
+        Plat savedPlat = platRepository.save(plat);
+        log.info("Plat sauvegardé avec ID: {}", savedPlat.getIdPlat());
+        
+        // 3. Ajouter les compositions
         if (platDto.getCompositions() != null && !platDto.getCompositions().isEmpty()) {
+            log.info("Ajout de {} compositions", platDto.getCompositions().size());
+            
             for (PlatCreationDto.CompositionDto compDto : platDto.getCompositions()) {
-                addComposition(savedPlat, compDto);
+                try {
+                    addComposition(savedPlat, compDto);
+                    log.info("Composition ajoutée: Aliment ID={}, Poids={}kg", 
+                        compDto.getIdAliment(), compDto.getPoidsAlimentComposition());
+                } catch (Exception e) {
+                    log.error("Erreur ajout composition: {}", e.getMessage());
+                    throw e;
+                }
             }
+        } else {
+            log.warn("Aucune composition dans le DTO!");
         }
         
-        // Recalculer les totaux
+        // 4. FORCER le recalcul des totaux
+        log.info("Recalcul des totaux...");
         savedPlat.calculerTotaux();
-        platRepository.save(savedPlat);
+        
+        // 5. Resauvegarder avec les totaux calculés
+        savedPlat = platRepository.save(savedPlat);
+        
+        log.info("✅ Plat créé avec succès! ID: {}, Poids total: {}kg, Coût: {}MGA", 
+            savedPlat.getIdPlat(), 
+            savedPlat.getPoidsTotalPlat(),
+            savedPlat.getCoutTotalPlat());
         
         return convertToDto(savedPlat);
     }
@@ -262,13 +286,44 @@ public class PlatService {
         
         // Créer la composition
         CompositionPlat composition = new CompositionPlat();
-        composition.setPlat(plat);
+        composition.setPlat(plat); // LIER au plat
         composition.setAliment(aliment);
         composition.setPoidsAlimentComposition(compDto.getPoidsAlimentComposition());
         
+        // La méthode @PrePersist calculera automatiquement le coût et nutriments
+        
+        // IMPORTANT : Ajouter à la liste du plat
+        if (plat.getCompositions() == null) {
+            plat.setCompositions(new ArrayList<>());
+        }
+        plat.getCompositions().add(composition);
+        
+        // Sauvegarder la composition
         compositionPlatRepository.save(composition);
+        
+        log.info("Composition sauvegardée: {} ({}kg)", 
+            aliment.getNomAliment(), compDto.getPoidsAlimentComposition());
     }
     
+    @Transactional
+    public void recalculerTousLesPlats() {
+        List<Plat> tousLesPlats = platRepository.findAll();
+        
+        for (Plat plat : tousLesPlats) {
+            System.out.println("🔍 Vérification du plat ID: " + plat.getIdPlat() + " - " + plat.getNomPlat());
+            
+            // Charger les compositions (peut être lazy)
+            if (plat.getCompositions() != null) {
+                System.out.println("  Compositions: " + plat.getCompositions().size());
+                
+                // Forcer le recalcul
+                plat.calculerTotaux();
+                platRepository.save(plat);
+                
+                System.out.println("  ✅ Poids recalculé: " + plat.getPoidsTotalPlat() + "kg");
+            }
+        }
+    }
     private PlatResponseDto convertToDto(Plat plat) {
         PlatResponseDto dto = new PlatResponseDto();
         dto.setIdPlat(plat.getIdPlat());
@@ -402,6 +457,23 @@ public class PlatService {
     public Plat utiliserPlat(Long idPlat) {
         PlatResponseDto dto = utiliserPlatAsDto(idPlat);
         return getPlatById(dto.getIdPlat());
+    }
+
+    // Dans PlatService.java
+    @Transactional
+    public Plat save(Plat plat) {
+        return platRepository.save(plat);
+    }
+
+    @Transactional
+    public PlatResponseDto recalculerPlat(Long id) {
+        Plat plat = getPlatById(id);
+        
+        // Forcer le recalcul
+        plat.calculerTotaux();
+        plat = platRepository.save(plat);
+        
+        return convertToDto(plat);
     }
 }
 

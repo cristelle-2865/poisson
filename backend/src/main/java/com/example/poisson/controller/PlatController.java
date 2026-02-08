@@ -35,9 +35,23 @@ public class PlatController {
     @GetMapping("/disponibles")
     public ResponseEntity<List<PlatResponseDto>> getPlatsDisponibles() {
         log.info("📥 GET /api/plats/disponibles appelé");
-        return ResponseEntity.ok(platService.getPlatsDisponiblesAsDto());
+        List<PlatResponseDto> plats = platService.getPlatsDisponiblesAsDto();
+        log.info("📤 Retourne {} plats disponibles", plats.size());
+        
+        // Ajouter un log pour chaque plat
+        for (int i = 0; i < plats.size(); i++) {
+            PlatResponseDto plat = plats.get(i);
+            log.info("Plat {}: ID={}, Nom={}, Poids={}kg, Utilisé={}", 
+                i + 1, 
+                plat.getIdPlat(),
+                plat.getNomPlat(),
+                plat.getPoidsTotalPlat(),
+                plat.getEstUtilisePlat());
+        }
+        
+        return ResponseEntity.ok(plats);
     }
-    
+
     @GetMapping("/stock-total")
     public ResponseEntity<BigDecimal> getStockTotalPlats() {
         log.info("📥 GET /api/plats/stock-total appelé");
@@ -104,5 +118,22 @@ public class PlatController {
         log.info("📥 POST /api/plats/{}/utiliser appelé", id);
         return ResponseEntity.ok(platService.utiliserPlatAsDto(id));
     }
+
+    // CORRECTION : Cette méthode doit utiliser le service, pas le repository directement
+    @PostMapping("/{id}/recalculer")
+    public ResponseEntity<PlatResponseDto> recalculerPlat(@PathVariable Long id) {
+        log.info("📥 POST /api/plats/{}/recalculer appelé", id);
+        return ResponseEntity.ok(platService.recalculerPlat(id));
+    }
+
+    @PostMapping("/recalculer-tous")
+    public ResponseEntity<String> recalculerTousLesPlats() {
+        log.info("📥 POST /api/plats/recalculer-tous appelé");
+        
+        platService.recalculerTousLesPlats();
+        
+        return ResponseEntity.ok("Tous les plats ont été recalculés");
+    }
 }
+
 

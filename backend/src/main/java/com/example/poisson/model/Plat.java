@@ -1,8 +1,8 @@
-// Plat.java
 package com.example.poisson.model;
 
 import jakarta.persistence.*;
 import lombok.Data;
+import lombok.extern.slf4j.Slf4j; // AJOUTEZ CET IMPORT
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
@@ -13,6 +13,7 @@ import java.util.List;
 @Entity
 @Table(name = "plat")
 @Data
+@Slf4j // AJOUTEZ CETTE ANNOTATION
 public class Plat {
     
     @Id
@@ -53,62 +54,101 @@ public class Plat {
     @Column(name = "date_creation_plat")
     private LocalDateTime dateCreationPlat = LocalDateTime.now();
     
+    // IMPORTANT : Ajoutez cascade = CascadeType.ALL pour que les compositions soient sauvegardées avec le plat
     @OneToMany(mappedBy = "plat", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
     private List<CompositionPlat> compositions = new ArrayList<>();
     
-    // Méthodes pour calculer les totaux
+    // NOUVELLE MÉTHODE : Appelée après chaque chargement de l'entité
+    @PostLoad
     @PostPersist
     @PostUpdate
-    @PostLoad
     public void calculerTotaux() {
-        if (compositions != null && !compositions.isEmpty()) {
-            poidsTotalPlat = compositions.stream()
-                .map(CompositionPlat::getPoidsAlimentComposition)
-                .filter(poids -> poids != null)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        log.info("🔄 DEBUT calculTotaux() pour plat ID: {}, Nom: {}", 
+            this.idPlat, this.nomPlat);
+        
+        BigDecimal totalPoids = BigDecimal.ZERO;
+        BigDecimal totalCout = BigDecimal.ZERO;
+        BigDecimal totalProteines = BigDecimal.ZERO;
+        BigDecimal totalGlucides = BigDecimal.ZERO;
+        
+        if (compositions != null) {
+            log.info("  Nombre de compositions: {}", compositions.size());
             
-            coutTotalPlat = compositions.stream()
-                .map(CompositionPlat::getCoutAlimentComposition)
-                .filter(cout -> cout != null)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-            
-            proteinesTotalPlat = compositions.stream()
-                .map(CompositionPlat::getProteinesComposition)
-                .filter(proteines -> proteines != null)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-            
-            glucidesTotalPlat = compositions.stream()
-                .map(CompositionPlat::getGlucidesComposition)
-                .filter(glucides -> glucides != null)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-            
-            // Calculer par kg (grammes par kg)
-            if (poidsTotalPlat.compareTo(BigDecimal.ZERO) > 0) {
-                proteinesParKgPlat = proteinesTotalPlat
-                    .multiply(new BigDecimal("1000"))
-                    .divide(poidsTotalPlat, 2, RoundingMode.HALF_UP);
-                
-                glucidesParKgPlat = glucidesTotalPlat
-                    .multiply(new BigDecimal("1000"))
-                    .divide(poidsTotalPlat, 2, RoundingMode.HALF_UP);
+            for (CompositionPlat comp : compositions) {
+                if (comp.getPoidsAlimentComposition() != null) {
+                    totalPoids = totalPoids.add(comp.getPoidsAlimentComposition());
+                    log.info("  + Composition: {}kg", comp.getPoidsAlimentComposition());
+                }
+                if (comp.getCoutAlimentComposition() != null) {
+                    totalCout = totalCout.add(comp.getCoutAlimentComposition());
+                }
+                if (comp.getProteinesComposition() != null) {
+                    totalProteines = totalProteines.add(comp.getProteinesComposition());
+                }
+                if (comp.getGlucidesComposition() != null) {
+                    totalGlucides = totalGlucides.add(comp.getGlucidesComposition());
+                }
             }
+        } else {
+            log.warn("  ⚠️ List compositions est null!");
         }
+        
+        this.poidsTotalPlat = totalPoids;
+        this.coutTotalPlat = totalCout;
+        this.proteinesTotalPlat = totalProteines;
+        this.glucidesTotalPlat = totalGlucides;
+        
+        log.info("  = Poids total calculé: {}kg", totalPoids);
+        
+        // Calculer par kg
+        if (this.poidsTotalPlat.compareTo(BigDecimal.ZERO) > 0) {
+            this.proteinesParKgPlat = this.proteinesTotalPlat
+                .multiply(new BigDecimal("1000"))
+                .divide(this.poidsTotalPlat, 2, RoundingMode.HALF_UP);
+            
+            this.glucidesParKgPlat = this.glucidesTotalPlat
+                .multiply(new BigDecimal("1000"))
+                .divide(this.poidsTotalPlat, 2, RoundingMode.HALF_UP);
+        } else {
+            this.proteinesParKgPlat = BigDecimal.ZERO;
+            this.glucidesParKgPlat = BigDecimal.ZERO;
+            log.warn("  ⚠️ Poids total = 0, impossible de calculer par kg");
+        }
+        
+        log.info("✅ FIN calculTotaux() - Poids: {}kg, Coût: {}MGA", 
+            this.poidsTotalPlat, this.coutTotalPlat);
     }
     
-    // Méthode pour ajouter une composition
+    // Méthode pour ajouter une composition (utile pour l'interface)
     public void ajouterComposition(Aliment aliment, BigDecimal poids) {
         CompositionPlat composition = new CompositionPlat();
         composition.setPlat(this);
         composition.setAliment(aliment);
         composition.setPoidsAlimentComposition(poids);
-        compositions.add(composition);
+        
+        // La méthode @PrePersist de CompositionPlat calculera automatiquement
+        // le coût et les nutriments
+        
+        if (this.compositions == null) {
+            this.compositions = new ArrayList<>();
+        }
+        
+        this.compositions.add(composition);
+        
+        // Recalculer les totaux immédiatement
         calculerTotaux();
     }
     
     // Méthode pour retirer une composition
     public void retirerComposition(Long idAliment) {
-        compositions.removeIf(comp -> comp.getAliment().getIdAliment().equals(idAliment));
-        calculerTotaux();
+        if (this.compositions != null) {
+            this.compositions.removeIf(comp -> 
+                comp.getAliment() != null && 
+                comp.getAliment().getIdAliment().equals(idAliment)
+            );
+            calculerTotaux();
+        }
     }
 }
+
 
