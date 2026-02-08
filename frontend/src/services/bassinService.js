@@ -145,6 +145,16 @@ const bassinService = {
             console.error('Erreur historique poisson:', error);
             throw error;
         }
+    },
+
+    async getAllWithStats() {
+        const response = await api.get('/piscines/with-stats')
+        return response.data
+    },
+    
+    async getByIdWithStats(id) {
+        const response = await api.get(`/piscines/${id}/with-stats`)
+        return response.data
     }
 };
 

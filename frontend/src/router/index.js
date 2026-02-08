@@ -105,6 +105,16 @@ const routes = [
           breadcrumb: 'Nourrissage'
         }
       },
+      {
+        path: 'nourrissage-new',
+        name: 'NourrissageNew',
+        component: () => import('../views/NourrissageNew.vue'),
+        meta: { 
+          title: 'Nourrissage des Poissons',
+          icon: '🍽️',
+          breadcrumb: 'Nourrissage'
+        }
+      },
       
       // Plats (NOUVEAU)
       {

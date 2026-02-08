@@ -162,11 +162,11 @@
             </div>
             <div class="info-item">
               <span class="info-label">Poissons actuels</span>
-              <span class="info-value">{{ bassin.nombrePoissonsActuels || 0 }}</span>
+              <span class="info-value">{{ getNombrePoissonsActuels(bassin) }}</span>
             </div>
             <div class="info-item">
               <span class="info-label">Places restantes</span>
-              <span class="info-value">{{ bassin.capaciteRestante || 0 }}</span>
+              <span class="info-value">{{ getCapaciteRestante(bassin) }}</span>
             </div>
           </div>
 
@@ -174,17 +174,17 @@
           <div class="occupation-section">
             <div class="occupation-header">
               <span>Taux d'occupation</span>
-              <span class="occupation-percent">{{ (bassin.tauxOccupation || 0).toFixed(1) }}%</span>
+              <span class="occupation-percent">{{ getTauxOccupation(bassin) }}%</span>
             </div>
             <div class="occupation-bar">
               <div 
                 class="occupation-fill" 
-                :style="{ width: (bassin.tauxOccupation || 0) + '%' }"
-                :class="getOccupationClass(bassin.tauxOccupation || 0)"
+                :style="{ width: getTauxOccupation(bassin) + '%' }"
+                :class="getOccupationClass(getTauxOccupation(bassin))"
               ></div>
             </div>
             <div class="occupation-text">
-              {{ bassin.nombrePoissonsActuels || 0 }} / {{ bassin.capaciteMaxPiscine }}
+              {{ getNombrePoissonsActuels(bassin) }} / {{ bassin.capaciteMaxPiscine }}
             </div>
           </div>
 
@@ -219,12 +219,16 @@
               <span class="date-label">Créé le</span>
               <span class="date-value">{{ formatDate(bassin.dateCreationPiscine) }}</span>
             </div>
+            <div v-if="bassin.dateModificationPiscine" class="date-item">
+              <span class="date-label">Modifié le</span>
+              <span class="date-value">{{ formatDate(bassin.dateModificationPiscine) }}</span>
+            </div>
           </div>
         </div>
 
         <!-- Pied de la carte -->
         <div class="bassin-footer">
-          <button @click="viderBassin(bassin)" class="btn-action" :disabled="!bassin.nombrePoissonsActuels">
+          <button @click="viderBassin(bassin)" class="btn-action" :disabled="!getNombrePoissonsActuels(bassin)">
             🚰 Vider le bassin
           </button>
           <router-link 
@@ -262,8 +266,8 @@
         <div class="modal-body">
           <p>Êtes-vous sûr de vouloir supprimer le bassin <strong>{{ bassinToDelete?.nomPiscine }}</strong> ?</p>
           
-          <div v-if="bassinToDelete?.nombrePoissonsActuels > 0" class="warning-alert">
-            ⚠️ <strong>Attention !</strong> Ce bassin contient {{ bassinToDelete?.nombrePoissonsActuels }} poisson(s).
+          <div v-if="getNombrePoissonsActuels(bassinToDelete) > 0" class="warning-alert">
+            ⚠️ <strong>Attention !</strong> Ce bassin contient {{ getNombrePoissonsActuels(bassinToDelete) }} poisson(s).
             Vous devez d'abord vider le bassin ou transférer les poissons.
           </div>
           
@@ -276,9 +280,9 @@
           <button 
             @click="deleteBassin" 
             class="btn-danger"
-            :disabled="bassinToDelete?.nombrePoissonsActuels > 0"
+            :disabled="getNombrePoissonsActuels(bassinToDelete) > 0"
           >
-            {{ bassinToDelete?.nombrePoissonsActuels > 0 ? 'Impossible (bassin non vide)' : 'Supprimer définitivement' }}
+            {{ getNombrePoissonsActuels(bassinToDelete) > 0 ? 'Impossible (bassin non vide)' : 'Supprimer définitivement' }}
           </button>
         </div>
       </div>
@@ -293,7 +297,7 @@
         </div>
         <div class="modal-body">
           <p>Êtes-vous sûr de vouloir vider le bassin <strong>{{ bassinToEmpty?.nomPiscine }}</strong> ?</p>
-          <p>Cette action retirera <strong>{{ bassinToEmpty?.nombrePoissonsActuels }} poisson(s)</strong> du bassin.</p>
+          <p>Cette action retirera <strong>{{ getNombrePoissonsActuels(bassinToEmpty) }} poisson(s)</strong> du bassin.</p>
           
           <div class="form-group">
             <label for="raison">Raison du vidage</label>
@@ -356,30 +360,43 @@ export default {
     // Tri
     const sortBy = ref('nom')
     
+    // Méthodes utilitaires pour calculer les statistiques
+    const getNombrePoissonsActuels = (bassin) => {
+      if (!bassin) return 0
+      if (bassin.nombrePoissonsActuels !== undefined) return bassin.nombrePoissonsActuels
+      if (bassin.poissons && Array.isArray(bassin.poissons)) return bassin.poissons.length
+      return 0
+    }
+    
+    const getCapaciteRestante = (bassin) => {
+      if (!bassin || !bassin.capaciteMaxPiscine) return 0
+      const nombrePoissons = getNombrePoissonsActuels(bassin)
+      return Math.max(0, bassin.capaciteMaxPiscine - nombrePoissons)
+    }
+    
+    const getTauxOccupation = (bassin) => {
+      if (!bassin || !bassin.capaciteMaxPiscine || bassin.capaciteMaxPiscine === 0) return 0
+      const nombrePoissons = getNombrePoissonsActuels(bassin)
+      const taux = (nombrePoissons / bassin.capaciteMaxPiscine) * 100
+      return parseFloat(taux.toFixed(1))
+    }
+    
     // Charger les données
     const loadData = async () => {
       isLoading.value = true
       try {
-        const bassinsData = await bassinService.getAll()
+        const bassinsData = await bassinService.getAllWithStats()
         bassins.value = Array.isArray(bassinsData) ? bassinsData : []
-        
-        // Calculer les statistiques pour chaque bassin
-        bassins.value = bassins.value.map(bassin => {
-          const nombrePoissonsActuels = bassin.poissons?.length || 0
-          const capaciteRestante = Math.max(0, bassin.capaciteMaxPiscine - nombrePoissonsActuels)
-          const tauxOccupation = bassin.capaciteMaxPiscine > 0 
-            ? (nombrePoissonsActuels / bassin.capaciteMaxPiscine) * 100 
-            : 0
-            
-          return {
-            ...bassin,
-            nombrePoissonsActuels,
-            capaciteRestante,
-            tauxOccupation: parseFloat(tauxOccupation.toFixed(1))
-          }
-        })
       } catch (error) {
         console.error('Erreur chargement bassins:', error)
+        // Fallback: essayer avec getAll normal
+        try {
+          const bassinsData = await bassinService.getAll()
+          bassins.value = Array.isArray(bassinsData) ? bassinsData : []
+        } catch (fallbackError) {
+          console.error('Erreur chargement fallback:', fallbackError)
+          bassins.value = []
+        }
       } finally {
         isLoading.value = false
       }
@@ -406,7 +423,7 @@ export default {
           
           // Filtre occupation
           if (filters.value.occupation) {
-            const taux = bassin.tauxOccupation || 0
+            const taux = getTauxOccupation(bassin)
             switch (filters.value.occupation) {
               case 'vide': if (taux > 0) return false; break
               case 'faible': if (taux <= 0 || taux > 33) return false; break
@@ -419,17 +436,22 @@ export default {
           return true
         })
         .sort((a, b) => {
+          const tauxA = getTauxOccupation(a)
+          const tauxB = getTauxOccupation(b)
+          const poissonsA = getNombrePoissonsActuels(a)
+          const poissonsB = getNombrePoissonsActuels(b)
+          
           switch (sortBy.value) {
             case 'nomDesc':
               return b.nomPiscine?.localeCompare(a.nomPiscine || '') || 0
             case 'occupationDesc':
-              return (b.tauxOccupation || 0) - (a.tauxOccupation || 0)
+              return tauxB - tauxA
             case 'occupationAsc':
-              return (a.tauxOccupation || 0) - (b.tauxOccupation || 0)
+              return tauxA - tauxB
             case 'poissonsDesc':
-              return (b.nombrePoissonsActuels || 0) - (a.nombrePoissonsActuels || 0)
+              return poissonsB - poissonsA
             case 'poissonsAsc':
-              return (a.nombrePoissonsActuels || 0) - (b.nombrePoissonsActuels || 0)
+              return poissonsA - poissonsB
             case 'dateDesc':
               return new Date(b.dateCreationPiscine) - new Date(a.dateCreationPiscine)
             case 'dateAsc':
@@ -442,10 +464,10 @@ export default {
     
     const totalBassins = computed(() => bassins.value.length)
     const bassinsActifs = computed(() => bassins.value.filter(b => b.estActivePiscine).length)
-    const totalPoissons = computed(() => bassins.value.reduce((sum, b) => sum + (b.nombrePoissonsActuels || 0), 0))
+    const totalPoissons = computed(() => bassins.value.reduce((sum, b) => sum + getNombrePoissonsActuels(b), 0))
     const tauxOccupationMoyen = computed(() => {
       if (bassins.value.length === 0) return 0
-      const total = bassins.value.reduce((sum, b) => sum + (b.tauxOccupation || 0), 0)
+      const total = bassins.value.reduce((sum, b) => sum + getTauxOccupation(b), 0)
       return Math.round(total / bassins.value.length)
     })
     
@@ -466,8 +488,12 @@ export default {
     
     const formatDate = (dateString) => {
       if (!dateString) return 'Date inconnue'
-      const date = new Date(dateString)
-      return date.toLocaleDateString('fr-FR')
+      try {
+        const date = new Date(dateString)
+        return date.toLocaleDateString('fr-FR')
+      } catch {
+        return 'Date invalide'
+      }
     }
     
     // Méthodes de gestion
@@ -502,7 +528,8 @@ export default {
     }
     
     const viderBassin = (bassin) => {
-      if (!bassin.nombrePoissonsActuels) {
+      const nombrePoissons = getNombrePoissonsActuels(bassin)
+      if (!nombrePoissons) {
         alert('Ce bassin est déjà vide !')
         return
       }
@@ -564,6 +591,12 @@ export default {
       totalPoissons,
       tauxOccupationMoyen,
       
+      // Méthodes utilitaires
+      getNombrePoissonsActuels,
+      getCapaciteRestante,
+      getTauxOccupation,
+      getOccupationClass,
+      
       // Méthodes
       loadData,
       refreshData,
@@ -573,7 +606,6 @@ export default {
       viderBassin,
       confirmEmpty,
       toggleBassinStatus,
-      getOccupationClass,
       truncateDescription,
       formatDate
     }
@@ -581,728 +613,8 @@ export default {
 }
 </script>
 
+
 <style scoped>
-.bassins-list {
-  padding: 20px;
-  background: #f7fafc;
-  min-height: 100vh;
-}
-
-/* En-tête */
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 30px;
-  background: white;
-  padding: 25px;
-  border-radius: 12px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-}
-
-.header-left h1 {
-  margin: 0;
-  color: #2d3748;
-  font-size: 28px;
-}
-
-.subtitle {
-  margin: 5px 0 0 0;
-  color: #718096;
-}
-
-.header-right {
-  display: flex;
-  gap: 15px;
-}
-
-.btn-primary {
-  padding: 12px 24px;
-  background: #4299e1;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 600;
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  transition: background 0.2s;
-}
-
-.btn-primary:hover {
-  background: #3182ce;
-}
-
-.btn-secondary {
-  padding: 12px 24px;
-  background: #e2e8f0;
-  color: #4a5568;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 600;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  transition: background 0.2s;
-}
-
-.btn-secondary:hover:not(:disabled) {
-  background: #cbd5e0;
-}
-
-.btn-secondary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* Cartes de statistiques */
-.stats-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 20px;
-  margin-bottom: 30px;
-}
-
-.stat-card {
-  background: white;
-  padding: 20px;
-  border-radius: 10px;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-  display: flex;
-  align-items: center;
-  gap: 15px;
-}
-
-.stat-icon {
-  font-size: 32px;
-}
-
-.stat-content h3 {
-  margin: 0;
-  color: #718096;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.stat-value {
-  margin: 5px 0 0 0;
-  font-size: 24px;
-  font-weight: bold;
-  color: #2d3748;
-}
-
-/* Filtres */
-.filters-section {
-  background: white;
-  padding: 25px;
-  border-radius: 12px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-  margin-bottom: 30px;
-}
-
-.filters-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-}
-
-.filters-header h2 {
-  margin: 0;
-  color: #2d3748;
-  font-size: 20px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.btn-link {
-  background: none;
-  border: none;
-  color: #4299e1;
-  cursor: pointer;
-  font-weight: 600;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.btn-link:hover {
-  text-decoration: underline;
-}
-
-.filters-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 20px;
-}
-
-.filter-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.filter-group label {
-  font-weight: 600;
-  color: #4a5568;
-  font-size: 14px;
-}
-
-.search-input,
-.filter-select {
-  padding: 10px 15px;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  font-size: 14px;
-  width: 100%;
-}
-
-.search-input:focus,
-.filter-select:focus {
-  outline: none;
-  border-color: #4299e1;
-  box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.1);
-}
-
-/* Grille des bassins */
-.bassins-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-  gap: 25px;
-  margin-bottom: 30px;
-}
-
-.bassin-card {
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  transition: transform 0.3s, box-shadow 0.3s;
-}
-
-.bassin-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 8px 25px rgba(0,0,0,0.15);
-}
-
-/* En-tête de la carte */
-.bassin-header {
-  padding: 20px;
-  background: #f7fafc;
-  border-bottom: 1px solid #e2e8f0;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-}
-
-.bassin-title {
-  flex: 1;
-}
-
-.bassin-title h3 {
-  margin: 0 0 10px 0;
-  color: #2d3748;
-  font-size: 20px;
-}
-
-.bassin-status {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.status-badge {
-  padding: 5px 12px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.status-active {
-  background: #c6f6d5;
-  color: #22543d;
-}
-
-.status-inactive {
-  background: #fed7d7;
-  color: #742a2a;
-}
-
-.bassin-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.btn-icon {
-  background: none;
-  border: none;
-  font-size: 18px;
-  cursor: pointer;
-  padding: 8px;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.2s;
-  text-decoration: none;
-  color: #4a5568;
-}
-
-.btn-icon:hover {
-  background: #e2e8f0;
-}
-
-.btn-delete:hover {
-  background: #fed7d7;
-  color: #f56565;
-}
-
-/* Corps de la carte */
-.bassin-body {
-  padding: 20px;
-  flex: 1;
-}
-
-.bassin-info {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 15px;
-  margin-bottom: 20px;
-  background: #f7fafc;
-  padding: 15px;
-  border-radius: 8px;
-}
-
-.info-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-}
-
-.info-label {
-  font-size: 12px;
-  color: #718096;
-  margin-bottom: 4px;
-}
-
-.info-value {
-  font-weight: bold;
-  color: #2d3748;
-  font-size: 18px;
-}
-
-/* Section occupation */
-.occupation-section {
-  margin-bottom: 20px;
-}
-
-.occupation-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 10px;
-}
-
-.occupation-percent {
-  font-weight: bold;
-  color: #2d3748;
-  font-size: 16px;
-}
-
-.occupation-bar {
-  height: 10px;
-  background: #e2e8f0;
-  border-radius: 5px;
-  overflow: hidden;
-  margin-bottom: 5px;
-}
-
-.occupation-fill {
-  height: 100%;
-  border-radius: 5px;
-  transition: width 0.3s;
-}
-
-.occupation-empty { background: #a0aec0; }
-.occupation-low { background: #48bb78; }
-.occupation-medium { background: #ed8936; }
-.occupation-high { background: #f56565; }
-.occupation-full { background: #742a2a; }
-
-.occupation-text {
-  text-align: center;
-  font-size: 14px;
-  color: #718096;
-}
-
-/* Caractéristiques techniques */
-.tech-specs {
-  margin-bottom: 20px;
-}
-
-.tech-specs h4 {
-  margin: 0 0 10px 0;
-  color: #4a5568;
-  font-size: 16px;
-}
-
-.specs-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-  gap: 15px;
-  background: #f7fafc;
-  padding: 15px;
-  border-radius: 8px;
-}
-
-.spec-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-}
-
-.spec-label {
-  font-size: 12px;
-  color: #718096;
-  margin-bottom: 4px;
-}
-
-.spec-value {
-  font-weight: 600;
-  color: #2d3748;
-  font-size: 14px;
-}
-
-/* Description */
-.description-section {
-  margin-bottom: 20px;
-}
-
-.description-section h4 {
-  margin: 0 0 10px 0;
-  color: #4a5568;
-  font-size: 16px;
-}
-
-.description-text {
-  margin: 0;
-  color: #718096;
-  font-size: 14px;
-  line-height: 1.5;
-  background: #f7fafc;
-  padding: 15px;
-  border-radius: 8px;
-}
-
-/* Dates */
-.dates-section {
-  background: #f7fafc;
-  padding: 15px;
-  border-radius: 8px;
-}
-
-.date-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.date-label {
-  color: #718096;
-  font-size: 14px;
-}
-
-.date-value {
-  font-weight: 600;
-  color: #2d3748;
-  font-size: 14px;
-}
-
-/* Pied de la carte */
-.bassin-footer {
-  padding: 20px;
-  background: #f7fafc;
-  border-top: 1px solid #e2e8f0;
-  display: flex;
-  gap: 10px;
-}
-
-.btn-action {
-  flex: 1;
-  padding: 10px 15px;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 600;
-  font-size: 14px;
-  text-align: center;
-  text-decoration: none;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
-
-.btn-action:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn-action:not(.btn-primary) {
-  background: #e2e8f0;
-  color: #4a5568;
-}
-
-.btn-action:not(.btn-primary):hover:not(:disabled) {
-  background: #cbd5e0;
-}
-
-.btn-action.btn-primary {
-  background: #4299e1;
-  color: white;
-}
-
-.btn-action.btn-primary:hover:not(:disabled) {
-  background: #3182ce;
-}
-
-/* Chargement */
-.loading-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 60px;
-  background: white;
-  border-radius: 12px;
-}
-
-.spinner {
-  width: 50px;
-  height: 50px;
-  border: 4px solid #e2e8f0;
-  border-top-color: #4299e1;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin-bottom: 20px;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-/* Aucun résultat */
-.no-results {
-  padding: 60px 20px;
-  text-align: center;
-  background: white;
-  border-radius: 12px;
-}
-
-.no-results-icon {
-  font-size: 60px;
-  margin-bottom: 20px;
-}
-
-.no-results h3 {
-  margin: 0 0 10px 0;
-  color: #2d3748;
-}
-
-.no-results p {
-  color: #718096;
-  margin-bottom: 20px;
-}
-
-/* Alertes */
-.warning-alert {
-  background: #fffaf0;
-  border-left: 4px solid #ed8936;
-  padding: 15px;
-  margin: 15px 0;
-  border-radius: 4px;
-  color: #744210;
-}
-
-.text-danger {
-  color: #f56565;
-  font-weight: 600;
-}
-
-/* Modales */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0,0,0,0.5);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-}
-
-.modal {
-  background: white;
-  border-radius: 12px;
-  width: 90%;
-  max-width: 500px;
-  animation: modalSlide 0.3s ease;
-}
-
-@keyframes modalSlide {
-  from {
-    opacity: 0;
-    transform: translateY(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px;
-  border-bottom: 1px solid #e2e8f0;
-}
-
-.modal-header h3 {
-  margin: 0;
-  color: #2d3748;
-}
-
-.modal-close {
-  background: none;
-  border: none;
-  font-size: 24px;
-  cursor: pointer;
-  color: #718096;
-  line-height: 1;
-}
-
-.modal-close:hover {
-  color: #f56565;
-}
-
-.modal-body {
-  padding: 20px;
-}
-
-.modal-footer {
-  padding: 20px;
-  border-top: 1px solid #e2e8f0;
-  display: flex;
-  justify-content: flex-end;
-  gap: 15px;
-}
-
-.btn-cancel {
-  padding: 10px 20px;
-  background: #e2e8f0;
-  color: #4a5568;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 600;
-}
-
-.btn-cancel:hover {
-  background: #cbd5e0;
-}
-
-.btn-danger {
-  padding: 10px 20px;
-  background: #f56565;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 600;
-}
-
-.btn-danger:hover:not(:disabled) {
-  background: #e53e3e;
-}
-
-.btn-danger:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn-warning {
-  padding: 10px 20px;
-  background: #ed8936;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 600;
-}
-
-.btn-warning:hover {
-  background: #dd6b20;
-}
-
-/* Responsive */
-@media (max-width: 1024px) {
-  .bassins-grid {
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  }
-}
-
-@media (max-width: 768px) {
-  .page-header {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 15px;
-  }
-  
-  .header-right {
-    justify-content: flex-start;
-  }
-  
-  .filters-grid {
-    grid-template-columns: 1fr;
-  }
-  
-  .bassins-grid {
-    grid-template-columns: 1fr;
-  }
-  
-  .bassin-info {
-    grid-template-columns: repeat(3, 1fr);
-  }
-  
-  .specs-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  
-  .bassin-footer {
-    flex-direction: column;
-  }
-}
-
-@media (max-width: 480px) {
-  .bassin-info {
-    grid-template-columns: 1fr;
-    gap: 10px;
-  }
-  
-  .specs-grid {
-    grid-template-columns: 1fr;
-  }
-}
+@import '../assets/styles/bassin-list';
 </style>
+

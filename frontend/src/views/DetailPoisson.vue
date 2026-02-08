@@ -31,7 +31,7 @@
         <div class="poisson-info">
           <h1>{{ poisson.nomPoisson }}</h1>
           <div class="poisson-meta">
-            <span class="race">{{ poisson.racePoisson?.nomRacePoisson || 'Non spécifié' }}</span>
+            <span class="race">{{ poisson.raceNom || 'Non spécifié' }}</span>
             <span class="status-badge" :class="getStatusClass()">
               {{ getStatusText() }}
             </span>
@@ -40,7 +40,6 @@
       </div>
     </div>
 
-    
     <!-- Statistiques principales -->
     <div class="main-stats">
       <div class="stat-card">
@@ -96,7 +95,15 @@
           </div>
           <div class="info-item">
             <span class="info-label">Race</span>
-            <span class="info-value">{{ poisson.racePoisson?.nomRacePoisson || 'Non spécifié' }}</span>
+            <span class="info-value">{{ poisson.raceNom || 'Non spécifié' }}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Bassin actuel</span>
+            <span class="info-value">{{ poisson.nomPiscine || 'Non assigné' }}</span>
+          </div>
+          <div v-if="poisson.nomPiscine" class="info-item">
+            <span class="info-label">Capacité du bassin</span>
+            <span class="info-value">{{ poisson.capaciteMaxPiscine }} poissons</span>
           </div>
           <div class="info-item">
             <span class="info-label">Date d'arrivée</span>
@@ -450,12 +457,19 @@ export default {
     })
 
     // Charger les données
-   const loadData = async () => {
+    const loadData = async () => {
       loading.value = true
       try {
-        // Charger le poisson
-        const poissonResponse = await api.get(`/poissons/${poissonId.value}`)
-        poisson.value = poissonResponse.data
+        // Essayer d'abord le nouvel endpoint /detail
+        try {
+          const poissonResponse = await api.get(`/poissons/${poissonId.value}/detail`)
+          poisson.value = poissonResponse.data
+        } catch (detailError) {
+          console.log('Endpoint /detail non disponible, utilisation de /poissons/{id}')
+          // Fallback à l'endpoint standard
+          const poissonResponse = await api.get(`/poissons/${poissonId.value}`)
+          poisson.value = poissonResponse.data
+        }
         
         // Charger l'historique
         const historiqueResponse = await api.get(`/fisakafoanana/poisson/${poissonId.value}`)
@@ -474,7 +488,7 @@ export default {
         }
       } catch (error) {
         console.error('Erreur chargement données:', error)
-        alert('Impossible de charger les données du poisson')
+        alert('Impossible de charger les données du poisson: ' + error.message)
       } finally {
         loading.value = false
       }
@@ -699,155 +713,155 @@ export default {
     }
 
     // Graphique
-   const initChart = () => {
-    try {
-      // Détruire le graphique existant
-      if (evolutionChart.value) {
-        evolutionChart.value.destroy()
-      }
-
-      // Vérifier que la référence existe
-      if (!evolutionChartRef.value) {
-        console.error('Canvas reference not found')
-        return
-      }
-
-      const ctx = evolutionChartRef.value.getContext('2d')
-      if (!ctx) return
-
-      // Vérifier qu'il y a des données
-      if (historique.value.length === 0) {
-        console.warn('Aucune donnée pour le graphique')
-        return
-      }
-
-      // Préparer les données - s'assurer qu'elles sont dans le bon ordre
-      const historiqueSorted = [...historique.value].sort((a, b) => 
-        new Date(a.dateNourrissageFisakafoanana) - new Date(b.dateNourrissageFisakafoanana)
-      )
-      
-      const dates = historiqueSorted.map(h => {
-        try {
-          const date = new Date(h.dateNourrissageFisakafoanana)
-          return `${date.getDate()}/${date.getMonth() + 1}`
-        } catch (e) {
-          return 'N/A'
+    const initChart = () => {
+      try {
+        // Détruire le graphique existant
+        if (evolutionChart.value) {
+          evolutionChart.value.destroy()
         }
-      })
-      
-      const poidsApres = historiqueSorted.map(h => h.nouveauPoidsFisakafoanana || 0)
-      const gains = historiqueSorted.map(h => h.gainPoidsFisakafoanana || 0)
 
-      // Vérifier que les données sont valides
-      if (poidsApres.length === 0 || gains.length === 0) {
-        console.warn('Données insuffisantes pour le graphique')
-        return
-      }
+        // Vérifier que la référence existe
+        if (!evolutionChartRef.value) {
+          console.error('Canvas reference not found')
+          return
+        }
 
-      // Créer le graphique
-      evolutionChart.value = new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: dates,
-          datasets: [
-            {
-              label: 'Poids (g)',
-              data: poidsApres,
-              borderColor: '#667eea',
-              backgroundColor: 'rgba(102, 126, 234, 0.1)',
-              borderWidth: 2,
-              fill: true,
-              tension: 0.4,
-              yAxisID: 'y'
-            },
-            {
-              label: 'Gains (g)',
-              data: gains,
-              borderColor: '#48bb78',
-              backgroundColor: 'rgba(72, 187, 120, 0.1)',
-              borderWidth: 2,
-              fill: false,
-              tension: 0.4,
-              yAxisID: 'y1'
-            }
-          ]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          interaction: {
-            mode: 'index',
-            intersect: false,
-          },
-          plugins: {
-            legend: {
-              display: true,
-              position: 'top',
-              labels: {
-                usePointStyle: true,
+        const ctx = evolutionChartRef.value.getContext('2d')
+        if (!ctx) return
+
+        // Vérifier qu'il y a des données
+        if (historique.value.length === 0) {
+          console.warn('Aucune donnée pour le graphique')
+          return
+        }
+
+        // Préparer les données - s'assurer qu'elles sont dans le bon ordre
+        const historiqueSorted = [...historique.value].sort((a, b) => 
+          new Date(a.dateNourrissageFisakafoanana) - new Date(b.dateNourrissageFisakafoanana)
+        )
+        
+        const dates = historiqueSorted.map(h => {
+          try {
+            const date = new Date(h.dateNourrissageFisakafoanana)
+            return `${date.getDate()}/${date.getMonth() + 1}`
+          } catch (e) {
+            return 'N/A'
+          }
+        })
+        
+        const poidsApres = historiqueSorted.map(h => h.nouveauPoidsFisakafoanana || 0)
+        const gains = historiqueSorted.map(h => h.gainPoidsFisakafoanana || 0)
+
+        // Vérifier que les données sont valides
+        if (poidsApres.length === 0 || gains.length === 0) {
+          console.warn('Données insuffisantes pour le graphique')
+          return
+        }
+
+        // Créer le graphique
+        evolutionChart.value = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: dates,
+            datasets: [
+              {
+                label: 'Poids (g)',
+                data: poidsApres,
+                borderColor: '#667eea',
+                backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                borderWidth: 2,
+                fill: true,
+                tension: 0.4,
+                yAxisID: 'y'
+              },
+              {
+                label: 'Gains (g)',
+                data: gains,
+                borderColor: '#48bb78',
+                backgroundColor: 'rgba(72, 187, 120, 0.1)',
+                borderWidth: 2,
+                fill: false,
+                tension: 0.4,
+                yAxisID: 'y1'
               }
-            },
-            tooltip: {
-              enabled: true,
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
               mode: 'index',
-              intersect: false
-            }
-          },
-          scales: {
-            x: {
-              title: {
+              intersect: false,
+            },
+            plugins: {
+              legend: {
                 display: true,
-                text: 'Date',
-                color: '#4a5568'
+                position: 'top',
+                labels: {
+                  usePointStyle: true,
+                }
               },
-              grid: {
-                display: false
+              tooltip: {
+                enabled: true,
+                mode: 'index',
+                intersect: false
               }
             },
-            y: {
-              type: 'linear',
-              display: true,
-              position: 'left',
-              title: {
-                display: true,
-                text: 'Poids (g)',
-                color: '#4a5568'
+            scales: {
+              x: {
+                title: {
+                  display: true,
+                  text: 'Date',
+                  color: '#4a5568'
+                },
+                grid: {
+                  display: false
+                }
               },
-              grid: {
-                color: 'rgba(226, 232, 240, 0.5)'
-              }
-            },
-            y1: {
-              type: 'linear',
-              display: true,
-              position: 'right',
-              title: {
+              y: {
+                type: 'linear',
                 display: true,
-                text: 'Gain (g)',
-                color: '#4a5568'
+                position: 'left',
+                title: {
+                  display: true,
+                  text: 'Poids (g)',
+                  color: '#4a5568'
+                },
+                grid: {
+                  color: 'rgba(226, 232, 240, 0.5)'
+                }
               },
-              grid: {
-                drawOnChartArea: false,
+              y1: {
+                type: 'linear',
+                display: true,
+                position: 'right',
+                title: {
+                  display: true,
+                  text: 'Gain (g)',
+                  color: '#4a5568'
+                },
+                grid: {
+                  drawOnChartArea: false,
+                }
               }
             }
           }
-        }
-      })
-      
-      console.log('Graphique créé avec succès')
-    } catch (error) {
-      console.error('Erreur lors de la création du graphique:', error)
+        })
+        
+        console.log('Graphique créé avec succès')
+      } catch (error) {
+        console.error('Erreur lors de la création du graphique:', error)
+      }
     }
-  }
 
-  watch(historique, (newVal) => {
-    if (newVal.length > 0) {
-      // Attendre un peu pour que le DOM soit prêt
-      setTimeout(() => {
-        initChart()
-      }, 300)
-    }
-  }, { deep: true })
+    watch(historique, (newVal) => {
+      if (newVal.length > 0) {
+        // Attendre un peu pour que le DOM soit prêt
+        setTimeout(() => {
+          initChart()
+        }, 300)
+      }
+    }, { deep: true })
 
     // Transfert (à implémenter si besoin)
     const showTransferModal = () => {

@@ -1,3 +1,4 @@
+// AlimentService.js - CORRIGÉ
 import api from './api'
 
 const alimentService = {
@@ -8,6 +9,22 @@ const alimentService = {
       return response.data
     } catch (error) {
       console.error('Erreur récupération aliments:', error)
+      throw error
+    }
+  },
+
+  // Récupérer les aliments disponibles (nouvelle méthode)
+  async getAlimentsDisponibles() {
+    try {
+      const response = await api.get('/aliments')
+      const aliments = response.data
+      // Filtrer ceux qui ont du stock et sont actifs
+      return aliments.filter(aliment => 
+        (aliment.stockAliment || 0) > 0 && 
+        (aliment.estActifAliment !== false)
+      )
+    } catch (error) {
+      console.error('Erreur getAlimentsDisponibles:', error)
       throw error
     }
   },
@@ -73,7 +90,7 @@ const alimentService = {
     try {
       const aliments = await this.getAliments()
       return aliments.filter(aliment => 
-        aliment.stockAliment < (aliment.seuilMinimumAliment || 10)
+        (aliment.stockAliment || 0) < (aliment.seuilMinimumAliment || 10)
       )
     } catch (error) {
       console.error('Erreur récupération aliments stock bas:', error)
@@ -117,6 +134,11 @@ const alimentService = {
       console.error('Erreur récupération aliments actifs:', error)
       throw error
     }
+  },
+
+  // ALIAS pour compatibilité - utiliser getAlimentsActifs() ou getAliments()
+  async getAllAliments() {
+    return await this.getAliments()
   }
 }
 
