@@ -723,3 +723,46 @@
 }
 
 
+.btn-nourrir {
+  background-color: #4CAF50 !important;
+  color: white !important;
+  border: 1px solid #45a049 !important;
+}
+
+.btn-nourrir:hover:not(:disabled) {
+  background-color: #45a049 !important;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(76, 175, 80, 0.3);
+}
+
+.btn-nourrir:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background-color: #cccccc !important;
+  border-color: #bbbbbb !important;
+}
+
+/* Style pour le compteur de poissons affamés */
+.info-item .hungry {
+  color: #ff9800;
+  font-weight: bold;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.7; }
+  100% { opacity: 1; }
+}
+
+/* Style pour l'info bassin dans le titre */
+.bassin-info {
+  font-size: 0.8em;
+  color: #666;
+  font-weight: normal;
+  margin-left: 10px;
+  padding: 2px 8px;
+  background-color: #f0f8ff;
+  border-radius: 12px;
+  border-left: 3px solid #2196F3;
+}

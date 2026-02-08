@@ -2,7 +2,12 @@
 <template>
   <div class="nourrissage-page">
     <div class="page-header">
-      <h1>Nourrissage des Poissons</h1>
+      <h1>
+    Nourrissage des Poissons
+    <span v-if="stats.bassinNom" class="bassin-info">
+      - Bassin: {{ stats.bassinNom }}
+    </span>
+  </h1>
       <div class="header-info">
         <div class="info-item">
           <span class="label">Poissons affamés:</span>
@@ -491,7 +496,7 @@
 
 <script>
 import { ref, computed, onMounted, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import poissonService from '../services/poissonService'
 import nourrissageService from '../services/nourrissageService'
 import platService from '../services/platService'
@@ -501,6 +506,7 @@ export default {
   name: 'NourrissageCombined',
   setup() {
     const router = useRouter()
+     const route = useRoute()
     
     // Données
     const aliments = ref([])
@@ -517,6 +523,7 @@ export default {
     const showCustomAliment = ref(false)
     const quantitePlat = ref(0.5) // 500g par défaut
     const distributionMode = ref('equitable')
+   
     
     // Aliment personnalisé
     const customAliment = ref({
@@ -527,34 +534,63 @@ export default {
     
     // Charger les données
     const loadData = async () => {
-      try {
-        // Charger les aliments
-        const alimentsData = await nourrissageService.getAliments()
-        aliments.value = alimentsData
-        if (alimentsData.length > 0 && modeNourrissage.value === 'aliment') {
-          selectedAlimentId.value = alimentsData[0].idAliment
-        }
-        
-        // Charger les plats disponibles
-        const platsData = await platService.getPlatsDisponibles()
-        platsDisponibles.value = platsData
-        if (platsData.length > 0 && modeNourrissage.value === 'plat') {
-          selectedPlatId.value = platsData[0].idPlat
-        }
-        
-        // Charger les poissons affamés
-        const poissonsData = await poissonService.getPoissonsAffames()
-        poissonsAffames.value = poissonsData
-        
-        // Charger les statistiques
-        const statsData = await poissonService.getStatistiques()
-        stats.value = statsData
-        
-      } catch (error) {
-        console.error('Erreur chargement données:', error)
-        alert('Impossible de charger les données')
-      }
+  try {
+    // Récupérer l'ID du bassin depuis les query params
+    const bassinId = route.query.bassinId
+    const bassinNom = route.query.bassinNom
+    
+    if (bassinId) {
+      // Si un bassin est spécifié, on affiche son nom dans le titre
+      document.title = `Nourrissage - ${bassinNom || 'Bassin'}`
     }
+    
+    // Charger les aliments
+    const alimentsData = await nourrissageService.getAliments()
+    aliments.value = alimentsData
+    if (alimentsData.length > 0 && modeNourrissage.value === 'aliment') {
+      selectedAlimentId.value = alimentsData[0].idAliment
+    }
+    
+    // Charger les plats disponibles
+    const platsData = await platService.getPlatsDisponibles()
+    platsDisponibles.value = platsData
+    if (platsData.length > 0 && modeNourrissage.value === 'plat') {
+      selectedPlatId.value = platsData[0].idPlat
+    }
+    
+    // MODIFIÉ : Charger les poissons affamés selon le bassin
+    let poissonsData
+    if (bassinId) {
+      // Récupérer les poissons du bassin spécifique
+      poissonsData = await poissonService.getPoissonsByBassin(bassinId)
+      // Filtrer pour ne garder que les affamés
+      poissonsData = poissonsData.filter(poisson => 
+        !poisson.estRassasiePoisson && 
+        !poisson.estVenduPoisson && 
+        poisson.estEnViePoisson
+      )
+    } else {
+      // Charger tous les poissons affamés (comportement par défaut)
+      poissonsData = await poissonService.getPoissonsAffames()
+    }
+    
+    poissonsAffames.value = poissonsData
+    
+    // Charger les statistiques
+    const statsData = await poissonService.getStatistiques()
+    stats.value = {
+      ...statsData,
+      poissonsAffames: poissonsAffames.value.length,
+      bassinId: bassinId,
+      bassinNom: bassinNom
+    }
+    
+  } catch (error) {
+    console.error('Erreur chargement données:', error)
+    alert('Impossible de charger les données')
+  }
+}
+
     
     // Aliment ou Plat sélectionné
     const selectedAliment = computed(() => {
@@ -1002,7 +1038,8 @@ export default {
       getGainClass,
       executerNourrissage,
       fermerResultat,
-      voirHistorique
+      voirHistorique,
+      loadData 
     }
   }
 }

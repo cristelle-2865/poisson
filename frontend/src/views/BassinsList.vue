@@ -168,6 +168,10 @@
               <span class="info-label">Places restantes</span>
               <span class="info-value">{{ getCapaciteRestante(bassin) }}</span>
             </div>
+            <div class="info-item">
+              <span class="info-label">Poissons affamés</span>
+              <span class="info-value hungry">{{ getNombrePoissonsAffames(bassin) }}</span>
+            </div>
           </div>
 
           <!-- Barre de progression d'occupation -->
@@ -230,6 +234,14 @@
         <div class="bassin-footer">
           <button @click="viderBassin(bassin)" class="btn-action" :disabled="!getNombrePoissonsActuels(bassin)">
             🚰 Vider le bassin
+          </button>
+           <button 
+            @click="nourrirPoissonsBassin(bassin)" 
+            class="btn-action btn-nourrir"
+            :disabled="!getNombrePoissonsAffames(bassin) || !bassin.estActivePiscine"
+            :title="!bassin.estActivePiscine ? 'Bassin inactif' : getNombrePoissonsAffames(bassin) ? `${getNombrePoissonsAffames(bassin)} poisson(s) affamé(s)` : 'Aucun poisson affamé'"
+          >
+            🍽️ Nourrir
           </button>
           <router-link 
             :to="{ name: 'DetailBassin', params: { id: bassin.idPiscine } }" 
@@ -349,6 +361,7 @@ export default {
     const bassinToEmpty = ref(null)
     const emptyReason = ref('Transfert')
     const customReason = ref('')
+    // const router = useRouter()
     
     // Filtres
     const filters = ref({
@@ -381,27 +394,78 @@ export default {
       return parseFloat(taux.toFixed(1))
     }
     
+
+    const getNombrePoissonsAffames = (bassin) => {
+  if (!bassin || !bassin.poissons || !Array.isArray(bassin.poissons)) return 0
+  return bassin.poissons.filter(poisson => 
+    !poisson.estRassasiePoisson && 
+    !poisson.estVenduPoisson && 
+    poisson.estEnViePoisson
+  ).length
+}
+
+// Ajouter dans la section des méthodes de gestion
+const nourrirPoissonsBassin = (bassin) => {
+  const nbAffames = getNombrePoissonsAffames(bassin)
+  if (nbAffames === 0) {
+    alert('Aucun poisson affamé dans ce bassin !')
+    return
+  }
+  
+  // Naviguer vers la page de nourrissage avec l'ID du bassin en paramètre
+  router.push({
+    name: 'NourrissageNew',
+    query: { 
+      bassinId: bassin.idPiscine,
+      bassinNom: bassin.nomPiscine
+    }
+  })
+}
+
     // Charger les données
-    const loadData = async () => {
-      isLoading.value = true
+  const loadData = async () => {
+  isLoading.value = true
+  try {
+    const bassinsData = await bassinService.getAllWithStats()
+    bassins.value = Array.isArray(bassinsData) ? bassinsData : []
+    
+    // Charger les poissons pour chaque bassin
+    for (let bassin of bassins.value) {
       try {
-        const bassinsData = await bassinService.getAllWithStats()
-        bassins.value = Array.isArray(bassinsData) ? bassinsData : []
+        const poissonsData = await bassinService.getPoissons(bassin.idPiscine)
+        bassin.poissons = Array.isArray(poissonsData) ? poissonsData : []
       } catch (error) {
-        console.error('Erreur chargement bassins:', error)
-        // Fallback: essayer avec getAll normal
-        try {
-          const bassinsData = await bassinService.getAll()
-          bassins.value = Array.isArray(bassinsData) ? bassinsData : []
-        } catch (fallbackError) {
-          console.error('Erreur chargement fallback:', fallbackError)
-          bassins.value = []
-        }
-      } finally {
-        isLoading.value = false
+        console.error(`Erreur chargement poissons pour bassin ${bassin.idPiscine}:`, error)
+        bassin.poissons = []
       }
     }
     
+  } catch (error) {
+    console.error('Erreur chargement bassins:', error)
+    // Fallback
+    try {
+      const bassinsData = await bassinService.getAll()
+      bassins.value = Array.isArray(bassinsData) ? bassinsData : []
+      
+      // Charger les poissons pour chaque bassin
+      for (let bassin of bassins.value) {
+        try {
+          const poissonsData = await bassinService.getPoissons(bassin.idPiscine)
+          bassin.poissons = Array.isArray(poissonsData) ? poissonsData : []
+        } catch (error) {
+          console.error(`Erreur chargement poissons pour bassin ${bassin.idPiscine}:`, error)
+          bassin.poissons = []
+        }
+      }
+      
+    } catch (fallbackError) {
+      console.error('Erreur chargement fallback:', fallbackError)
+      bassins.value = []
+    }
+  } finally {
+    isLoading.value = false
+  }
+}
     // Computed properties
     const filteredBassins = computed(() => {
       return bassins.value
@@ -596,6 +660,8 @@ export default {
       getCapaciteRestante,
       getTauxOccupation,
       getOccupationClass,
+      getNombrePoissonsAffames, 
+      nourrirPoissonsBassin,
       
       // Méthodes
       loadData,

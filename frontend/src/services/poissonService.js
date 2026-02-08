@@ -24,6 +24,16 @@ const poissonService = {
     }
   },
 
+  async getPoissonsByBassin(bassinId) {
+  try {
+    const response = await api.get(`/piscines/${bassinId}/poissons`)
+    return response.data
+  } catch (error) {
+    console.error(`Erreur récupération poissons bassin ${bassinId}:`, error)
+    throw error
+  }
+},
+
   // Récupérer les poissons affamés
   async getPoissonsAffames() {
     try {
