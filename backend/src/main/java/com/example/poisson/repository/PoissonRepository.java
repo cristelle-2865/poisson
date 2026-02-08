@@ -41,6 +41,8 @@ public interface PoissonRepository extends JpaRepository<Poisson, Long> {
     
     @Query("SELECT COUNT(p) FROM Poisson p WHERE p.piscineActuelle.idPiscine = :idPiscine")
     Long countPoissonsInPiscine(@Param("idPiscine") Long idPiscine);
+
+     List<Poisson> findByPiscineActuelleIdPiscineAndEstRassasiePoissonFalseAndEstVenduPoissonFalseAndEstEnViePoissonTrue(Long idPiscine);
 }
 
 

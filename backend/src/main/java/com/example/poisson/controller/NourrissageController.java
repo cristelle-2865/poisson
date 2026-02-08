@@ -52,6 +52,23 @@ public class NourrissageController {
             ));
         }
     }
+
+    @PostMapping("/nourrir-bassin")
+    public ResponseEntity<Map<String, Object>> nourrirPoissonsDansBassin(
+            @RequestParam BigDecimal quantitePlat, // en kg
+            @RequestParam BigDecimal proteinesParKg, // g/kg
+            @RequestParam BigDecimal glucidesParKg, // g/kg
+            @RequestParam(required = false) Long bassinId) { // ID du bassin (optionnel)
+        
+        Map<String, Object> result = nourrissageService.nourrirPoissonsDansBassin(
+            quantitePlat, 
+            proteinesParKg, 
+            glucidesParKg,
+            bassinId
+        );
+        
+        return ResponseEntity.ok(result);
+    }
 }
 
 

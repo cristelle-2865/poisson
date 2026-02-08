@@ -419,6 +419,141 @@ public Map<String, Object> nourrirAvecPlat(Long idPlat) {
         throw new RuntimeException("Erreur lors du nourrissage avec plat: " + e.getMessage());
     }
 }
+
+@Transactional
+public Map<String, Object> nourrirPoissonsDansBassin(BigDecimal quantitePlatTotal, 
+                                                     BigDecimal proteinesParKg, 
+                                                     BigDecimal glucidesParKg,
+                                                     Long idBassin) {
+    
+    // Convertir kg en grammes pour les calculs
+    BigDecimal platTotalGrammes = quantitePlatTotal.multiply(new BigDecimal("1000"));
+    
+    // Calcul des nutriments totaux dans le plat
+    BigDecimal proteinesTotales = proteinesParKg.multiply(quantitePlatTotal);
+    BigDecimal glucidesTotales = glucidesParKg.multiply(quantitePlatTotal);
+    
+    // Récupérer les poissons affamés DANS LE BASSIN SPÉCIFIQUE
+    List<Poisson> poissonsAffames;
+    if (idBassin != null) {
+        poissonsAffames = poissonRepository
+            .findByPiscineActuelleIdPiscineAndEstRassasiePoissonFalseAndEstVenduPoissonFalseAndEstEnViePoissonTrue(idBassin);
+    } else {
+        // Si pas de bassin spécifié, prendre tous les poissons affamés
+        poissonsAffames = poissonRepository
+            .findByEstRassasiePoissonFalseAndEstVenduPoissonFalseAndEstEnViePoissonTrue();
+    }
+    
+    if (poissonsAffames.isEmpty()) {
+        String message = idBassin != null 
+            ? "Aucun poisson affamé dans le bassin spécifié" 
+            : "Aucun poisson affamé";
+        return Map.of(
+            "message", message,
+            "poissonsNourris", 0,
+            "nourritureRestante", platTotalGrammes
+        );
+    }
+    
+    // Calcul du besoin total (règle de trois)
+    BigDecimal besoinPlatParPoisson = new BigDecimal("5.0");
+    BigDecimal besoinTotal = besoinPlatParPoisson.multiply(new BigDecimal(poissonsAffames.size()));
+    
+    // Vérifier si assez de nourriture
+    if (platTotalGrammes.compareTo(besoinTotal) < 0) {
+        // Répartir proportionnellement
+        return repartirNourritureLimitee(poissonsAffames, platTotalGrammes, proteinesParKg, glucidesParKg, idBassin);
+    }
+    
+    // Assez de nourriture pour tous
+    return nourrirTousPoissonsDansBassin(poissonsAffames, besoinPlatParPoisson, proteinesParKg, glucidesParKg, idBassin);
+}
+private Map<String, Object> nourrirTousPoissonsDansBassin(List<Poisson> poissons, 
+                                                         BigDecimal quantiteParPoisson,
+                                                         BigDecimal proteinesParKg, 
+                                                         BigDecimal glucidesParKg,
+                                                         Long idBassin) {
+    
+    List<Fisakafoanana> historiques = new ArrayList<>();
+    int poissonsNourris = 0;
+    
+    for (Poisson poisson : poissons) {
+        Fisakafoanana historique = nourrirUnPoisson(
+            poisson, 
+            quantiteParPoisson, 
+            proteinesParKg, 
+            glucidesParKg
+        );
+        
+        historiques.add(historique);
+        poissonsNourris++;
+        
+        // Marquer comme rassasié
+        poisson.setEstRassasiePoisson(true);
+        poissonRepository.save(poisson);
+    }
+    
+    fisakafoananaRepository.saveAll(historiques);
+    
+    String message = idBassin != null 
+        ? "Tous les poissons du bassin ont été nourris" 
+        : "Tous les poissons ont été nourris";
+    
+    return Map.of(
+        "message", message,
+        "poissonsNourris", poissonsNourris,
+        "nourritureUtilisee", quantiteParPoisson.multiply(new BigDecimal(poissons.size())),
+        "date", LocalDate.now(),
+        "bassinId", idBassin
+    );
+}
+
+private Map<String, Object> repartirNourritureLimitee(List<Poisson> poissons, 
+                                                     BigDecimal platTotal,
+                                                     BigDecimal proteinesParKg,
+                                                     BigDecimal glucidesParKg,
+                                                     Long idBassin) {
+    
+    BigDecimal besoinParPoisson = new BigDecimal("5.0");
+    int nombrePoissonsNourris = platTotal.divide(besoinParPoisson, 0, RoundingMode.FLOOR).intValue();
+    
+    List<Fisakafoanana> historiques = new ArrayList<>();
+    
+    for (int i = 0; i < Math.min(nombrePoissonsNourris, poissons.size()); i++) {
+        Poisson poisson = poissons.get(i);
+        
+        Fisakafoanana historique = nourrirUnPoisson(
+            poisson, 
+            besoinParPoisson, 
+            proteinesParKg, 
+            glucidesParKg
+        );
+        
+        historiques.add(historique);
+        poisson.setEstRassasiePoisson(true);
+        poissonRepository.save(poisson);
+    }
+    
+    fisakafoananaRepository.saveAll(historiques);
+    
+    BigDecimal nourritureRestante = platTotal.subtract(
+        besoinParPoisson.multiply(new BigDecimal(nombrePoissonsNourris))
+    );
+    
+    String message = idBassin != null 
+        ? "Nourriture limitée, certains poissons du bassin nourris" 
+        : "Nourriture limitée, certains poissons nourris";
+    
+    return Map.of(
+        "message", message,
+        "poissonsNourris", nombrePoissonsNourris,
+        "poissonsAffamesRestants", poissons.size() - nombrePoissonsNourris,
+        "nourritureRestante", nourritureRestante,
+        "date", LocalDate.now(),
+        "bassinId", idBassin
+    );
+}
+
     // Dans NourrissageService.java
     @Transactional(readOnly = true)
     public List<Poisson> getPoissonsAffamesAvecDetails() {
