@@ -524,6 +524,40 @@ async nourrirPoissonsComplet(data) {
     console.error('❌ Erreur nourrissage complet:', error)
     throw error
   }
+},
+
+async nourrirAvecPlat(platId) {
+  try {
+    console.log('📤 Envoi nourrissage avec plat:', platId)
+    
+    const response = await api.post(`/nourrissage/nourrir-avec-plat/${platId}`)
+    
+    console.log('✅ Nourrissage avec plat réussi:', response.data)
+    
+    // Combiner avec nos calculs pour l'affichage
+    const resultat = {
+      ...response.data,
+      message: `Plat utilisé avec succès: ${response.data.platUtilise}`,
+      poissonsNourris: response.data.poissonsNourris || 0,
+      nourritureUtilisee: response.data.quantitePlat || 0,
+      success: true
+    }
+    
+    return resultat
+    
+  } catch (error) {
+    console.error('❌ Erreur nourrissage avec plat:', error)
+    
+    const errorMessage = error.response?.data?.message || error.message
+    const errorDetails = {
+      message: `Erreur avec le plat: ${errorMessage}`,
+      platId,
+      status: error.response?.status,
+      timestamp: new Date().toISOString()
+    }
+    
+    throw new Error(JSON.stringify(errorDetails))
+  }
 }
 
 }

@@ -891,63 +891,65 @@ export default {
     }
     
     // Exécuter le nourrissage
-    const executerNourrissage = async () => {
-      if (!canNourrir.value) return
+const executerNourrissage = async () => {
+  if (!canNourrir.value) return
+  
+  loading.value = true
+  try {
+    let result
+    
+    if (modeNourrissage.value === 'plat' && selectedPlat.value) {
+      // Nourrir avec un plat - APPELER LA NOUVELLE MÉTHODE
+      console.log('Nourrissage avec plat:', selectedPlat.value.idPlat)
+      result = await nourrissageService.nourrirAvecPlat(selectedPlat.value.idPlat)
       
-      loading.value = true
-      try {
-        let result
-        
-        if (modeNourrissage.value === 'plat' && selectedPlat.value) {
-          // Nourrir avec un plat
-          console.log('Nourrissage avec plat:', selectedPlat.value.idPlat)
-          result = await nourrissageService.nourrirAvecPlat(selectedPlat.value.idPlat)
-          
-        } else if (modeNourrissage.value === 'aliment') {
-          // Nourrir avec un aliment (personnalisé ou existant)
-          const alimentData = showCustomAliment.value ? customAliment.value : selectedAliment.value
-          
-          console.log('Nourrissage avec aliment:', {
-            quantite: quantitePlat.value,
-            proteines: alimentData.proteinesParKg || alimentData.proteinesParKgAliment,
-            glucides: alimentData.glucidesParKg || alimentData.glucidesParKgAliment
-          })
-          
-          result = await nourrissageService.nourrirPoissons(
-            quantitePlat.value,
-            alimentData.proteinesParKg || alimentData.proteinesParKgAliment,
-            alimentData.glucidesParKg || alimentData.glucidesParKgAliment
-          )
-        }
-        
-        // Afficher le résultat
-        resultatNourrissage.value = {
-          message: `Nourrissage réussi !`,
-          poissonsNourris: result.poissonsNourris || stats.value.poissonsAffames,
-          nourritureUtilisee: quantitePlat.value,
-          gainTotal: gainTotalPrevu.value,
-          coutTotal: coutTotal.value,
-          details: poissonsAffames.value.map(p => ({
-            id: p.idPoisson,
-            nom: p.nomPoisson,
-            gain: getGainPrevu(p)
-          }))
-        }
-        
-        if (modeNourrissage.value === 'plat' && selectedPlat.value) {
-          resultatNourrissage.value.message = `Plat "${selectedPlat.value.nomPlat}" utilisé avec succès !`
-        }
-        
-        // Recharger les données
-        await loadData()
-        
-      } catch (error) {
-        console.error('Erreur nourrissage:', error)
-        alert(error.response?.data?.message || 'Erreur lors du nourrissage')
-      } finally {
-        loading.value = false
-      }
+    } else if (modeNourrissage.value === 'aliment') {
+      // Nourrir avec un aliment (personnalisé ou existant)
+      const alimentData = showCustomAliment.value ? customAliment.value : selectedAliment.value
+      
+      console.log('Nourrissage avec aliment:', {
+        quantite: quantitePlat.value,
+        proteines: alimentData.proteinesParKg || alimentData.proteinesParKgAliment,
+        glucides: alimentData.glucidesParKg || alimentData.glucidesParKgAliment
+      })
+      
+      // Convertir kg en grammes pour l'API si nécessaire
+      // Vérifiez si votre API attend des kg ou des g
+      result = await nourrissageService.nourrirPoissons(
+        quantitePlat.value, // en kg
+        alimentData.proteinesParKg || alimentData.proteinesParKgAliment,
+        alimentData.glucidesParKg || alimentData.glucidesParKgAliment
+      )
     }
+    
+    // Afficher le résultat
+    resultatNourrissage.value = {
+      message: result.message || `Nourrissage réussi !`,
+      poissonsNourris: result.poissonsNourris || stats.value.poissonsAffames,
+      nourritureUtilisee: result.nourritureUtilisee || quantitePlat.value,
+      gainTotal: result.gainTotal || gainTotalPrevu.value,
+      coutTotal: result.coutTotal || coutTotal.value,
+      details: poissonsAffames.value.map(p => ({
+        id: p.idPoisson,
+        nom: p.nomPoisson,
+        gain: getGainPrevu(p)
+      }))
+    }
+    
+    if (modeNourrissage.value === 'plat' && selectedPlat.value) {
+      resultatNourrissage.value.message = `Plat "${selectedPlat.value.nomPlat}" utilisé avec succès !`
+    }
+    
+    // Recharger les données
+    await loadData()
+    
+  } catch (error) {
+    console.error('Erreur nourrissage:', error)
+    alert(error.response?.data?.message || 'Erreur lors du nourrissage')
+  } finally {
+    loading.value = false
+  }
+}
     
     const fermerResultat = () => {
       resultatNourrissage.value = null
