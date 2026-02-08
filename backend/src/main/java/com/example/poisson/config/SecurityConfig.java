@@ -1,4 +1,3 @@
-// SecurityConfig.java
 package com.example.poisson.config;
 
 import com.example.poisson.service.JwtService;
@@ -45,15 +44,21 @@ public class SecurityConfig {
             .csrf(AbstractHttpConfigurer::disable)
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                // Routes publiques
+                // ⚠️ AJOUTEZ CES LIGNES POUR PERMETTRE L'ACCÈS SANS AUTHENTIFICATION
+                .requestMatchers("/aliments/**").permitAll()
+                .requestMatchers("/plats/**").permitAll()
+                .requestMatchers("/").permitAll()
+                
+                // Routes publiques existantes
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                 
                 // Routes protégées
                 .requestMatchers("/api/**").authenticated()
-                .anyRequest().permitAll()
-            )
-            .addFilterBefore(jwtAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class);
+                .anyRequest().permitAll() // ⚠️ PERMET TOUT LE RESTE
+            );
+            // ⚠️ COMMENTEZ TEMPORAIREMENT LE FILTRE JWT POUR TESTER
+            // .addFilterBefore(jwtAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class);
         
         return http.build();
     }
@@ -72,7 +77,7 @@ public class SecurityConfig {
         configuration.setAllowCredentials(true);
         
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", configuration);
+        source.registerCorsConfiguration("/**", configuration); // ⚠️ APPLIQUE À TOUTES LES ROUTES
         return source;
     }
     
@@ -85,22 +90,9 @@ public class SecurityConfig {
         protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, 
                                         FilterChain filterChain) throws ServletException, IOException {
             
-            String authHeader = request.getHeader("Authorization");
-            
-            if (authHeader != null && authHeader.startsWith("Bearer ")) {
-                String token = authHeader.substring(7);
-                
-                if (jwtService.validateToken(token)) {
-                    String email = jwtService.getEmailFromToken(token);
-                    String role = jwtService.getRoleFromToken(token);
-                    
-                    // Vous pouvez ici charger l'utilisateur depuis la base si nécessaire
-                    // Et le mettre dans le SecurityContext
-                }
-            }
-            
-            filterChain.doFilter(request, response);
+            filterChain.doFilter(request, response); // ⚠️ LAISSE PASSER TOUTES LES REQUÊTES
         }
     }
 }
+
 

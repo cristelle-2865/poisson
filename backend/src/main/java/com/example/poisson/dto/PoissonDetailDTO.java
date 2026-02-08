@@ -1,4 +1,4 @@
-// PoissonDetailDTO.java
+// PoissonDetailDTO.java - corriger les noms des propriétés
 package com.example.poisson.dto;
 
 import lombok.Data;
@@ -23,10 +23,10 @@ public class PoissonDetailDTO {
     private Boolean estEnViePoisson;
     private BigDecimal capaciteAugmentationPoisson;
     
-    // Informations bassin
-    private String piscineNom;
-    private Integer piscineCapacite;
-    private Long piscineId;
+    // Informations bassin - utiliser les mêmes noms que dans le modèle
+    private Long idPiscine;  // Au lieu de piscineId
+    private String nomPiscine;  // Au lieu de piscineNom
+    private Integer capaciteMaxPiscine;  // Au lieu de piscineCapacite
     private Boolean estPretAVendre;
     private BigDecimal pourcentageProgression;
     
@@ -52,9 +52,9 @@ public class PoissonDetailDTO {
         this.capaciteAugmentationPoisson = poisson.getCapaciteAugmentationPoisson();
         
         if (poisson.getPiscineActuelle() != null) {
-            this.piscineNom = poisson.getPiscineActuelle().getNomPiscine();
-            this.piscineCapacite = poisson.getPiscineActuelle().getCapaciteMaxPiscine();
-            this.piscineId = poisson.getPiscineActuelle().getIdPiscine();
+            this.idPiscine = poisson.getPiscineActuelle().getIdPiscine();
+            this.nomPiscine = poisson.getPiscineActuelle().getNomPiscine();
+            this.capaciteMaxPiscine = poisson.getPiscineActuelle().getCapaciteMaxPiscine();
         }
         
         this.estPretAVendre = poisson.estPretAVendre();

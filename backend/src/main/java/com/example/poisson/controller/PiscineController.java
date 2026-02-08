@@ -2,6 +2,7 @@
 package com.example.poisson.controller;
 
 import com.example.poisson.dto.PiscineDTO;
+import com.example.poisson.dto.PiscineWithStatsDTO; // AJOUTER CET IMPORT
 import com.example.poisson.model.AffectationPiscine;
 import com.example.poisson.model.Piscine;
 import com.example.poisson.model.Poisson;
@@ -30,7 +31,6 @@ public class PiscineController {
     public ResponseEntity<List<Piscine>> getActivePiscines() {
         return ResponseEntity.ok(piscineService.getActivePiscines());
     }
-    
     
     @GetMapping("/disponibles")
     public ResponseEntity<List<Piscine>> getAvailablePiscines() {
@@ -103,5 +103,18 @@ public class PiscineController {
     public ResponseEntity<List<AffectationPiscine>> getHistoriquePoisson(@PathVariable Long idPoisson) {
         return ResponseEntity.ok(piscineService.getHistoriquePoisson(idPoisson));
     }
+    
+    // PiscineController.java - Ajouter ces endpoints
+    @GetMapping("/{id}/complet")
+    public ResponseEntity<Map<String, Object>> getPiscineComplet(@PathVariable Long id) {
+        return ResponseEntity.ok(piscineService.getPiscineWithStats(id));
+    }
+    
+    @GetMapping("/{id}/with-stats")
+    public ResponseEntity<PiscineWithStatsDTO> getPiscineWithStats(@PathVariable Long id) {
+        Piscine piscine = piscineService.getPiscineByIdWithRelations(id);
+        return ResponseEntity.ok(new PiscineWithStatsDTO(piscine));
+    }
 }
+
 

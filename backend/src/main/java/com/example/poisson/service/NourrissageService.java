@@ -271,5 +271,25 @@ public class NourrissageService {
         
         return result;
     }
+
+    // Dans NourrissageService.java
+    @Transactional(readOnly = true)
+    public List<Poisson> getPoissonsAffamesAvecDetails() {
+        List<Poisson> poissons = poissonRepository
+            .findByEstRassasiePoissonFalseAndEstVenduPoissonFalseAndEstEnViePoissonTrue();
+        
+        // Charger les relations si nécessaire
+        for (Poisson poisson : poissons) {
+            if (poisson.getPiscineActuelle() != null) {
+                // Initialiser la piscine pour éviter LazyInitializationException
+                poisson.getPiscineActuelle().getNomPiscine();
+            }
+            if (poisson.getRacePoisson() != null) {
+                poisson.getRacePoisson().getNomRacePoisson();
+            }
+        }
+        
+        return poissons;
+    }
 }
 

@@ -18,6 +18,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 
 @Service
 @RequiredArgsConstructor
@@ -220,6 +222,31 @@ public class PiscineService {
     public List<Piscine> findPiscinesAvailableForTransfer() {
         return piscineRepository.findPiscinesWithAvailableSpace();
     }
-}
 
+    // Méthode simplifiée sans Hibernate
+    public Map<String, Object> getPiscineWithStats(Long idPiscine) {
+        Piscine piscine = getPiscineById(idPiscine);
+        
+        // Utiliser une requête spécifique pour charger les poissons
+        List<Poisson> poissons = poissonRepository.findByPiscineActuelleIdPiscine(idPiscine);
+        piscine.setPoissons(poissons); // Définir la collection
+        
+        Map<String, Object> result = new HashMap<>();
+        result.put("bassin", piscine);
+        result.put("statistiques", getStatistiquesPiscine(idPiscine));
+        
+        return result;
+    }
+
+    // Version alternative sans Hibernate.initialize
+    public Piscine getPiscineByIdWithRelations(Long id) {
+        Piscine piscine = getPiscineById(id);
+        
+        // Charger les poissons via une requête spécifique
+        List<Poisson> poissons = poissonRepository.findByPiscineActuelleIdPiscine(id);
+        piscine.setPoissons(poissons);
+        
+        return piscine;
+    }
+}
 
