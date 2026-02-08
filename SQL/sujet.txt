@@ -1,0 +1,157 @@
+1. Poisson
+
+Chaque poisson appartient à une race et possède les informations suivantes :
+
+    Nom
+
+    Prix de vente
+
+    Prix d’achat
+
+    Poids maximum
+
+    Capacité d’augmentation de poids
+
+    Poids initial
+
+Besoins nutritionnels :
+
+    Protéines : 2 g
+
+    Glucides : 4 g
+
+Si les besoins sont totalement satisfaits (4 g de protéines et 8 g de glucides), le poisson prend 20 g de poids.
+
+Exemples d’évolution du poids
+
+Si le poisson mange :
+
+Protéines : 2 g
+
+Glucides : 4 g
+
+➜ Le poisson prend 10 g de poids.
+
+Si le poisson mange :
+
+Protéines : 2 g
+
+Glucides : 0 g
+
+➜ Le poisson prend 5 g de poids.
+
+Si le poisson mange :
+
+Protéines : 0 g
+
+Glucides : 4 g
+
+➜ Le poisson prend 5 g de poids.
+
+Si le poisson mange :
+
+Protéines : 4 g
+
+Glucides : 4 g
+
+➜ Le poisson prend 15 g de poids.
+
+
+
+2. Aliment
+
+    Un aliment est défini par :
+
+    Nom
+
+    Prix d’achat
+
+    Apport en protéines (%)
+
+    Apport en glucides (%)
+
+Exemple :
+
+    Larves
+
+    Prix : 2000 Ar / kg
+
+    Apport :
+
+    Protéines : 10 g / kg
+
+    Glucides : 10 g / kg
+
+3. Plat
+
+Un plat représente l’ensemble des aliments servis aux poissons.
+
+Il contient :
+
+    Nom de l’aliment
+
+    Poids de l’aliment
+
+    Exemple
+
+    Aliment : Larves
+
+    Poids : 5 kg
+
+    Le plat correspond donc à la quantité totale d’aliments distribuée aux poissons.
+
+4. Table fisakafoanana
+
+On doit créer une table fisakafoanana pour stocker les données suivantes :
+
+Date d’arrivée du poisson dans la piscine
+
+Évolution du poids du poisson
+
+Objectif de cette table
+
+Conserver l’historique de l’évolution du poids de chaque poisson
+
+Stocker :
+
+L’ancien poids
+
+Le nouveau poids
+
+ sans faire de mise à jour directe du poids dans la table poisson, mais en enregistrant chaque évolution dans une table séparée.
+
+
+5. Objectifs du système
+
+Calculer le bénéfice sur une période donnée
+
+Enregistrer la date d’entrée de chaque poisson dans la piscine
+
+Suivre l’évolution du poids jour après jour
+
+
+
+6. Autres conditions importantes
+
+    Les poissons rassasiés ne mangent plus
+
+    La part de nourriture non consommée est automatiquement redistribuée aux poissons qui ont encore faim
+
+    Les poissons qui atteignent leur poids maximum ne grossissent plus
+
+
+7. Exemple de calcul (règle de trois)
+
+Si on nourrit les poissons d’une piscine avec 50 g de plat, on calcule les apports nutritionnels par règle de trois :
+
+Protéines
+
+2 g ➜ 5 g de plat
+
+50 g ➜ ?
+
+Glucides
+
+4 g ➜ 5 g de plat
+
+50 g ➜ ?
