@@ -89,7 +89,7 @@ export default {
       {
         title: 'Opérations',
         items: [
-          { name: 'Nourrissage', label: 'Nourrissage', icon: '🍽️' },
+          { name: 'NourrissageNew', label: 'NourrissageNew', icon: '🍽️' },
           { name: 'Plats', label: 'Plats', icon: '🥘' }
         ]
       },

@@ -155,7 +155,7 @@ export default {
     }
     
     const quickNourrir = () => {
-      router.push('/nourrissage')
+      router.push('/nourrissage-new')
     }
     
     const quickVendre = () => {
