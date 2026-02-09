@@ -185,3 +185,35 @@ CREATE INDEX idx_composition_aliment ON compositionplat(id_aliment);
 CREATE INDEX idx_plat_date ON plat(date_preparation_plat);
 CREATE INDEX idx_plat_utilise ON plat(est_utilise_plat) WHERE est_utilise_plat = FALSE;
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+-- 1. Ajouter la colonne id_plat dans la table fisakafoanana
+ALTER TABLE fisakafoanana 
+ADD COLUMN id_plat BIGINT;
+
+-- 2. Ajouter la contrainte de clé étrangère
+ALTER TABLE fisakafoanana 
+ADD CONSTRAINT fk_fisakafoanana_plat 
+FOREIGN KEY (id_plat) REFERENCES plat(id_plat);
+
+-- 3. Optionnel: Créer un index pour améliorer les performances
+CREATE INDEX idx_fisakafoanana_plat ON fisakafoanana(id_plat);
+
+
+
+ALTER TABLE piscine ADD COLUMN date_modification_piscine TIMESTAMP;
+
+
+
