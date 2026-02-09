@@ -8,8 +8,8 @@
           <span class="value hungry">{{ stats.poissonsAffames || 0 }}</span>
         </div>
         <div class="info-item">
-          <span class="label">Besoin total:</span>
-          <span class="value">{{ besoinTotal }} g</span>
+          <span class="label">Total nutriments:</span>
+          <span class="value">{{ calculateTotalNutrients() }} g</span>
         </div>
         <div class="info-item">
           <span class="label">Coût estimé:</span>
@@ -36,12 +36,17 @@
                 <div class="aliment-info">
                   <h4>{{ aliment.nomAliment }}</h4>
                   <div class="aliment-details">
-                    <span>Protéines: {{ aliment.proteinesParKg }} g/kg</span>
-                    <span>Glucides: {{ aliment.glucidesParKg }} g/kg</span>
-                    <span>Stock: {{ aliment.stockAliment }} kg</span>
+                    <span class="nutrient protein">P: {{ aliment.proteinesParKgAliment }}g/kg</span>
+                    <span class="nutrient carbs">G: {{ aliment.glucidesParKgAliment }}g/kg</span>
+                    <span class="nutrient lipid">L: {{ aliment.lipidesParKgAliment || 5 }}g/kg</span>
+                    <span class="nutrient vitamin">V: {{ aliment.vitaminesParKgAliment || 0.5 }}g/kg</span>
+                    <span>Stock: {{ formatStock(aliment.stockAliment) }} kg</span>
                   </div>
                 </div>
-                <div class="aliment-price">{{ aliment.prixKgAliment }} MGA/kg</div>
+                <div class="aliment-price">{{ formatPrice(aliment.prixKgAliment) }} MGA/kg</div>
+                <div class="aliment-quality" :class="getAlimentQualityClass(aliment)">
+                  {{ getAlimentQualityText(aliment) }}
+                </div>
               </div>
             </div>
             
@@ -55,6 +60,14 @@
                 <div class="input-group">
                   <label>Glucides (g/kg)</label>
                   <input type="number" v-model="customAliment.glucidesParKg" min="0" step="0.1">
+                </div>
+                <div class="input-group">
+                  <label>Lipides (g/kg)</label>
+                  <input type="number" v-model="customAliment.lipidesParKg" min="0" step="0.1" value="5">
+                </div>
+                <div class="input-group">
+                  <label>Vitamines (g/kg)</label>
+                  <input type="number" v-model="customAliment.vitaminesParKg" min="0" step="0.01" value="0.5">
                 </div>
                 <div class="input-group">
                   <label>Prix (MGA/kg)</label>
@@ -91,25 +104,36 @@
               </div>
             </div>
 
-            <!-- Calculs nutritionnels -->
+            <!-- Calculs nutritionnels complets -->
             <div class="calculations-section">
-              <h4>Calculs nutritionnels</h4>
+              <h4>Calculs nutritionnels complets</h4>
               <div class="calculations-grid">
                 <div class="calc-item">
                   <span class="calc-label">Protéines totales:</span>
-                  <span class="calc-value">{{ proteinesTotales.toFixed(1) }} g</span>
+                  <span class="calc-value protein">{{ proteinesTotales.toFixed(1) }} g</span>
                 </div>
                 <div class="calc-item">
                   <span class="calc-label">Glucides totales:</span>
-                  <span class="calc-value">{{ glucidesTotales.toFixed(1) }} g</span>
+                  <span class="calc-value carbs">{{ glucidesTotales.toFixed(1) }} g</span>
+                </div>
+                <div class="calc-item">
+                  <span class="calc-label">Lipides totales:</span>
+                  <span class="calc-value lipid">{{ lipidesTotales.toFixed(1) }} g</span>
+                </div>
+                <div class="calc-item">
+                  <span class="calc-label">Vitamines totales:</span>
+                  <span class="calc-value vitamin">{{ vitaminesTotales.toFixed(2) }} g</span>
                 </div>
                 <div class="calc-item">
                   <span class="calc-label">Par poisson:</span>
-                  <span class="calc-value">{{ proteinesParPoisson.toFixed(1) }}g P / {{ glucidesParPoisson.toFixed(1) }}g G</span>
+                  <span class="calc-value small">
+                    P:{{ proteinesParPoisson.toFixed(1) }}g G:{{ glucidesParPoisson.toFixed(1) }}g
+                    L:{{ lipidesParPoisson.toFixed(1) }}g V:{{ vitaminesParPoisson.toFixed(2) }}g
+                  </span>
                 </div>
                 <div class="calc-item">
                   <span class="calc-label">Coût total:</span>
-                  <span class="calc-value">{{ coutTotal }} MGA</span>
+                  <span class="calc-value price">{{ coutTotal }} MGA</span>
                 </div>
               </div>
             </div>
@@ -124,7 +148,7 @@
                     <span class="gain-value">{{ scenario.gain }} g/poisson</span>
                   </div>
                   <div class="gain-details">
-                    <span>{{ scenario.proteines }}g P + {{ scenario.glucides }}g G</span>
+                    <span>P:{{ scenario.proteines }}g G:{{ scenario.glucides }}g L:{{ scenario.lipides }}g V:{{ scenario.vitamines }}g</span>
                   </div>
                 </div>
               </div>
@@ -186,9 +210,9 @@
 
       <!-- Panneau de visualisation -->
       <div class="visualization-section">
-        <!-- Résumé nutritionnel -->
+        <!-- Résumé nutritionnel complet -->
         <div class="card">
-          <h2>Résumé nutritionnel</h2>
+          <h2>Résumé nutritionnel complet</h2>
           <div class="nutrition-summary">
             <div class="satisfaction-meters">
               <div class="meter">
@@ -197,11 +221,10 @@
                   <span class="meter-value">{{ satisfaction.proteines }}%</span>
                 </div>
                 <div class="meter-bar">
-                  <div class="meter-fill" :style="{ width: satisfaction.proteines + '%' }"
-                       :class="getSatisfactionClass(satisfaction.proteines)"></div>
+                  <div class="meter-fill protein" :style="{ width: Math.min(satisfaction.proteines, 100) + '%' }"></div>
                 </div>
                 <div class="meter-details">
-                  {{ proteinesParPoisson.toFixed(1) }}g reçus / 2g besoins
+                  {{ proteinesParPoisson.toFixed(1) }}g / 2g besoins
                 </div>
               </div>
               
@@ -211,11 +234,36 @@
                   <span class="meter-value">{{ satisfaction.glucides }}%</span>
                 </div>
                 <div class="meter-bar">
-                  <div class="meter-fill" :style="{ width: satisfaction.glucides + '%' }"
-                       :class="getSatisfactionClass(satisfaction.glucides)"></div>
+                  <div class="meter-fill carbs" :style="{ width: Math.min(satisfaction.glucides, 100) + '%' }"></div>
                 </div>
                 <div class="meter-details">
-                  {{ glucidesParPoisson.toFixed(1) }}g reçus / 4g besoins
+                  {{ glucidesParPoisson.toFixed(1) }}g / 4g besoins
+                </div>
+              </div>
+              
+              <div class="meter">
+                <div class="meter-header">
+                  <span class="meter-label">Lipides</span>
+                  <span class="meter-value">{{ satisfaction.lipides }}%</span>
+                </div>
+                <div class="meter-bar">
+                  <div class="meter-fill lipid" :style="{ width: Math.min(satisfaction.lipides, 100) + '%' }"></div>
+                </div>
+                <div class="meter-details">
+                  {{ lipidesParPoisson.toFixed(1) }}g / 1g besoins
+                </div>
+              </div>
+              
+              <div class="meter">
+                <div class="meter-header">
+                  <span class="meter-label">Vitamines</span>
+                  <span class="meter-value">{{ satisfaction.vitamines }}%</span>
+                </div>
+                <div class="meter-bar">
+                  <div class="meter-fill vitamin" :style="{ width: Math.min(satisfaction.vitamines, 100) + '%' }"></div>
+                </div>
+                <div class="meter-details">
+                  {{ vitaminesParPoisson.toFixed(2) }}g / 0.5g besoins
                 </div>
               </div>
             </div>
@@ -230,20 +278,26 @@
               <div class="overall-message">
                 {{ getSatisfactionMessage(satisfaction.moyenne) }}
               </div>
+              <div class="overall-status" v-if="satisfaction.tousSatisfaits">
+                ✅ Tous les besoins nutritionnels sont satisfaits
+              </div>
+              <div class="overall-status warning" v-else>
+                ⚠️ Certains besoins ne sont pas entièrement satisfaits
+              </div>
             </div>
           </div>
         </div>
 
         <!-- Prévisions de gain -->
         <div class="card">
-          <h2>Prévisions de gain</h2>
+          <h2>Prévisions de gain complet</h2>
           <div class="gain-predictions">
             <div class="prediction-chart">
               <div class="chart-bars">
                 <div v-for="(gain, index) in gainsParPoisson" :key="index" class="chart-bar-container">
-                  <div class="chart-bar" :style="{ height: (gain / 20 * 100) + '%' }"
+                  <div class="chart-bar" :style="{ height: (gain / 25 * 100) + '%' }"
                        :class="getGainClass(gain)">
-                    <span class="bar-value">{{ gain }}g</span>
+                    <span class="bar-value">{{ gain.toFixed(1) }}g</span>
                   </div>
                   <div class="bar-label">P{{ index + 1 }}</div>
                 </div>
@@ -253,19 +307,19 @@
             <div class="prediction-stats">
               <div class="stat-item">
                 <span class="stat-label">Gain minimum:</span>
-                <span class="stat-value">{{ gainMin }} g</span>
+                <span class="stat-value">{{ gainMin.toFixed(1) }} g</span>
               </div>
               <div class="stat-item">
                 <span class="stat-label">Gain maximum:</span>
-                <span class="stat-value">{{ gainMax }} g</span>
+                <span class="stat-value">{{ gainMax.toFixed(1) }} g</span>
               </div>
               <div class="stat-item">
                 <span class="stat-label">Gain moyen:</span>
-                <span class="stat-value">{{ gainMoyen }} g</span>
+                <span class="stat-value">{{ gainMoyen.toFixed(1) }} g</span>
               </div>
               <div class="stat-item total">
                 <span class="stat-label">Gain total:</span>
-                <span class="stat-value">{{ gainTotalPrevu }} g</span>
+                <span class="stat-value">{{ gainTotalPrevu.toFixed(1) }} g</span>
               </div>
             </div>
           </div>
@@ -294,12 +348,24 @@
                   <span class="value">{{ getProgression(poisson) }}%</span>
                 </div>
               </div>
+              <div class="fish-nutrition">
+                <div class="nutrition-bars">
+                  <div class="nutrient-bar protein" :style="{ width: getNutrientPercentage(poisson, 'proteines') + '%' }"
+                       title="Protéines"></div>
+                  <div class="nutrient-bar carbs" :style="{ width: getNutrientPercentage(poisson, 'glucides') + '%' }"
+                       title="Glucides"></div>
+                  <div class="nutrient-bar lipid" :style="{ width: getNutrientPercentage(poisson, 'lipides') + '%' }"
+                       title="Lipides"></div>
+                  <div class="nutrient-bar vitamin" :style="{ width: getNutrientPercentage(poisson, 'vitamines') + '%' }"
+                       title="Vitamines"></div>
+                </div>
+              </div>
               <div class="fish-gain">
                 <div class="gain-indicator">
                   <div class="gain-bar">
                     <div class="gain-fill" :style="{ width: getAllocation(poisson) + '%' }"></div>
                   </div>
-                  <span class="gain-text">{{ getGainPrevu(poisson) }}g</span>
+                  <span class="gain-text">{{ getGainPrevu(poisson).toFixed(1) }}g</span>
                 </div>
               </div>
             </div>
@@ -358,6 +424,28 @@
             </div>
           </div>
           
+          <div class="nutrition-result">
+            <h4>📊 Apports nutritionnels</h4>
+            <div class="nutrition-grid">
+              <div class="nutrition-item protein">
+                <span class="label">Protéines</span>
+                <span class="value">{{ resultatNourrissage.proteinesTotales }}g</span>
+              </div>
+              <div class="nutrition-item carbs">
+                <span class="label">Glucides</span>
+                <span class="value">{{ resultatNourrissage.glucidesTotales }}g</span>
+              </div>
+              <div class="nutrition-item lipid">
+                <span class="label">Lipides</span>
+                <span class="value">{{ resultatNourrissage.lipidesTotales }}g</span>
+              </div>
+              <div class="nutrition-item vitamin">
+                <span class="label">Vitamines</span>
+                <span class="value">{{ resultatNourrissage.vitaminesTotales }}g</span>
+              </div>
+            </div>
+          </div>
+          
           <div class="result-details" v-if="resultatNourrissage.details">
             <h4>Détails par poisson</h4>
             <div class="details-list">
@@ -376,6 +464,9 @@
           <button @click="voirHistorique" class="btn-history">
             Voir l'historique
           </button>
+          <button @click="exporterRapport" class="btn-export">
+            📥 Exporter rapport
+          </button>
         </div>
       </div>
     </div>
@@ -385,8 +476,7 @@
 <script>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import poissonService from '../services/poissonService'
-import nourrissageService from '../services/nourrissageService'
+import api from '../services/api'
 import { calculService } from '../services/calculService'
 
 export default {
@@ -411,6 +501,8 @@ export default {
     const customAliment = ref({
       proteinesParKg: 10,
       glucidesParKg: 10,
+      lipidesParKg: 5,
+      vitaminesParKg: 0.5,
       prixParKg: 2000
     })
     
@@ -418,19 +510,19 @@ export default {
     const loadData = async () => {
       try {
         // Charger les aliments
-        const alimentsData = await nourrissageService.getAliments()
-        aliments.value = alimentsData
-        if (alimentsData.length > 0) {
-          selectedAlimentId.value = alimentsData[0].idAliment
+        const response = await api.get('/aliments')
+        aliments.value = response.data
+        if (aliments.value.length > 0) {
+          selectedAlimentId.value = aliments.value[0].idAliment
         }
         
         // Charger les poissons affamés
-        const poissonsData = await poissonService.getPoissonsAffames()
-        poissonsAffames.value = poissonsData
+        const poissonsResponse = await api.get('/poissons/affames')
+        poissonsAffames.value = poissonsResponse.data
         
         // Charger les statistiques
-        const statsData = await poissonService.getStatistiques()
-        stats.value = statsData
+        const statsResponse = await api.get('/poissons/statistiques')
+        stats.value = statsResponse.data
         
       } catch (error) {
         console.error('Erreur chargement données:', error)
@@ -449,28 +541,56 @@ export default {
     // Quantité maximale
     const maxQuantite = computed(() => {
       if (!selectedAliment.value || showCustomAliment.value) return 10
-      return Math.min(selectedAliment.value.stockAliment, 10)
+      return Math.min(selectedAliment.value.stockAliment || 0, 10)
     })
     
-    // Calculs nutritionnels
+    // Calculs nutritionnels complets
     const proteinesTotales = computed(() => {
       if (!selectedAliment.value || quantitePlat.value <= 0) return 0
-      const { proteinesTotal } = calculService.calculerApportsTotaux(
+      const apports = calculService.calculerApportsTotaux(
         quantitePlat.value,
-        selectedAliment.value.proteinesParKg,
-        selectedAliment.value.glucidesParKg
+        selectedAliment.value.proteinesParKg || selectedAliment.value.proteinesParKgAliment,
+        selectedAliment.value.glucidesParKg || selectedAliment.value.glucidesParKgAliment,
+        selectedAliment.value.lipidesParKg || selectedAliment.value.lipidesParKgAliment || 5,
+        selectedAliment.value.vitaminesParKg || selectedAliment.value.vitaminesParKgAliment || 0.5
       )
-      return proteinesTotal
+      return apports.proteinesTotal
     })
     
     const glucidesTotales = computed(() => {
       if (!selectedAliment.value || quantitePlat.value <= 0) return 0
-      const { glucidesTotal } = calculService.calculerApportsTotaux(
+      const apports = calculService.calculerApportsTotaux(
         quantitePlat.value,
-        selectedAliment.value.proteinesParKg,
-        selectedAliment.value.glucidesParKg
+        selectedAliment.value.proteinesParKg || selectedAliment.value.proteinesParKgAliment,
+        selectedAliment.value.glucidesParKg || selectedAliment.value.glucidesParKgAliment,
+        selectedAliment.value.lipidesParKg || selectedAliment.value.lipidesParKgAliment || 5,
+        selectedAliment.value.vitaminesParKg || selectedAliment.value.vitaminesParKgAliment || 0.5
       )
-      return glucidesTotal
+      return apports.glucidesTotal
+    })
+    
+    const lipidesTotales = computed(() => {
+      if (!selectedAliment.value || quantitePlat.value <= 0) return 0
+      const apports = calculService.calculerApportsTotaux(
+        quantitePlat.value,
+        selectedAliment.value.proteinesParKg || selectedAliment.value.proteinesParKgAliment,
+        selectedAliment.value.glucidesParKg || selectedAliment.value.glucidesParKgAliment,
+        selectedAliment.value.lipidesParKg || selectedAliment.value.lipidesParKgAliment || 5,
+        selectedAliment.value.vitaminesParKg || selectedAliment.value.vitaminesParKgAliment || 0.5
+      )
+      return apports.lipidesTotal || 0
+    })
+    
+    const vitaminesTotales = computed(() => {
+      if (!selectedAliment.value || quantitePlat.value <= 0) return 0
+      const apports = calculService.calculerApportsTotaux(
+        quantitePlat.value,
+        selectedAliment.value.proteinesParKg || selectedAliment.value.proteinesParKgAliment,
+        selectedAliment.value.glucidesParKg || selectedAliment.value.glucidesParKgAliment,
+        selectedAliment.value.lipidesParKg || selectedAliment.value.lipidesParKgAliment || 5,
+        selectedAliment.value.vitaminesParKg || selectedAliment.value.vitaminesParKgAliment || 0.5
+      )
+      return apports.vitaminesTotal || 0
     })
     
     // Par poisson
@@ -484,19 +604,33 @@ export default {
       return glucidesTotales.value / stats.value.poissonsAffames
     })
     
-    // Satisfaction
+    const lipidesParPoisson = computed(() => {
+      if (stats.value.poissonsAffames === 0) return 0
+      return lipidesTotales.value / stats.value.poissonsAffames
+    })
+    
+    const vitaminesParPoisson = computed(() => {
+      if (stats.value.poissonsAffames === 0) return 0
+      return vitaminesTotales.value / stats.value.poissonsAffames
+    })
+    
+    // Satisfaction complète
     const satisfaction = computed(() => {
-      return calculService.calculerSatisfaction(
+      return calculService.calculerSatisfactionComplet(
         proteinesParPoisson.value,
-        glucidesParPoisson.value
+        glucidesParPoisson.value,
+        lipidesParPoisson.value,
+        vitaminesParPoisson.value
       )
     })
     
-    // Gain par poisson
+    // Gain par poisson (complet)
     const gainParPoisson = computed(() => {
-      return calculService.calculerGainPoids(
+      return calculService.calculerGainPoidsComplet(
         proteinesParPoisson.value,
-        glucidesParPoisson.value
+        glucidesParPoisson.value,
+        lipidesParPoisson.value,
+        vitaminesParPoisson.value
       )
     })
     
@@ -508,21 +642,16 @@ export default {
     // Coût total
     const coutTotal = computed(() => {
       if (!selectedAliment.value) return 0
-      return calculService.calculerCoutNourrissage(
-        quantitePlat.value,
-        selectedAliment.value.prixParKg || selectedAliment.value.prixKgAliment
-      )
+      const prix = selectedAliment.value.prixParKg || selectedAliment.value.prixKgAliment
+      return calculService.calculerCoutNourrissage(quantitePlat.value, prix)
     })
     
-    // Besoins totaux
-    const besoinTotal = computed(() => {
-      // 2g protéines + 4g glucides = 6g par poisson
-      // Pour 5g de plat
-      const besoinParPoisson = 5 // g de plat
-      return stats.value.poissonsAffames * besoinParPoisson
-    })
+    // Total nutriments
+    const calculateTotalNutrients = () => {
+      return (proteinesTotales.value + glucidesTotales.value + lipidesTotales.value + vitaminesTotales.value).toFixed(1)
+    }
     
-    // Scénarios de gain
+    // Scénarios de gain complets
     const scenariosGain = computed(() => {
       return [
         {
@@ -530,28 +659,36 @@ export default {
           title: 'Minimum',
           proteines: 2,
           glucides: 0,
-          gain: 5
+          lipides: 0,
+          vitamines: 0,
+          gain: calculService.calculerGainPoidsComplet(2, 0, 0, 0)
         },
         {
           id: 2,
-          title: 'Intermédiaire',
+          title: 'Basique',
           proteines: 2,
           glucides: 4,
-          gain: 10
+          lipides: 0,
+          vitamines: 0,
+          gain: calculService.calculerGainPoidsComplet(2, 4, 0, 0)
         },
         {
           id: 3,
-          title: 'Bon',
-          proteines: 4,
+          title: 'Équilibré',
+          proteines: 2,
           glucides: 4,
-          gain: 15
+          lipides: 1,
+          vitamines: 0.5,
+          gain: calculService.calculerGainPoidsComplet(2, 4, 1, 0.5)
         },
         {
           id: 4,
           title: 'Optimal',
           proteines: 4,
           glucides: 8,
-          gain: 20
+          lipides: 2,
+          vitamines: 1,
+          gain: calculService.calculerGainPoidsComplet(4, 8, 2, 1)
         }
       ]
     })
@@ -566,15 +703,15 @@ export default {
     })
     
     const gainMin = computed(() => {
-      return stats.value.poissonsAffames * 5
+      return stats.value.poissonsAffames * scenariosGain.value[0].gain
     })
     
     const gainMax = computed(() => {
-      return stats.value.poissonsAffames * 20
+      return stats.value.poissonsAffames * scenariosGain.value[3].gain
     })
     
     const gainMoyen = computed(() => {
-      return stats.value.poissonsAffames * gainParPoisson.value
+      return gainTotalPrevu.value
     })
     
     // Validation
@@ -600,7 +737,116 @@ export default {
       return 'success'
     })
     
-    // Méthodes
+    // Méthodes utilitaires
+    const formatStock = (stock) => {
+      if (!stock && stock !== 0) return '0.00'
+      return parseFloat(stock).toFixed(2)
+    }
+    
+    const formatPrice = (price) => {
+      if (!price && price !== 0) return '0'
+      return parseFloat(price).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
+    }
+    
+    const formatPoids = (poids) => {
+      return poids ? Math.round(poids * 100) / 100 : 0
+    }
+    
+    const getAlimentQualityClass = (aliment) => {
+      const analysis = calculService.evaluerQualiteAliment({
+        proteinesParKg: aliment.proteinesParKgAliment,
+        glucidesParKg: aliment.glucidesParKgAliment,
+        lipidesParKg: aliment.lipidesParKgAliment || 5,
+        vitaminesParKg: aliment.vitaminesParKgAliment || 0.5
+      })
+      
+      if (analysis.score >= 90) return 'excellent'
+      if (analysis.score >= 75) return 'good'
+      if (analysis.score >= 50) return 'medium'
+      return 'low'
+    }
+    
+    const getAlimentQualityText = (aliment) => {
+      const analysis = calculService.evaluerQualiteAliment({
+        proteinesParKg: aliment.proteinesParKgAliment,
+        glucidesParKg: aliment.glucidesParKgAliment,
+        lipidesParKg: aliment.lipidesParKgAliment || 5,
+        vitaminesParKg: aliment.vitaminesParKgAliment || 0.5
+      })
+      return analysis.qualite
+    }
+    
+    const getProgression = (poisson) => {
+      if (!poisson.poidsActuelPoisson || !poisson.poidsMaximalPoisson) return 0
+      return Math.round((poisson.poidsActuelPoisson / poisson.poidsMaximalPoisson) * 100)
+    }
+    
+    const getNutrientPercentage = (poisson, nutrient) => {
+      const besoins = {
+        proteines: 2,
+        glucides: 4,
+        lipides: 1,
+        vitamines: 0.5
+      }
+      
+      const recu = {
+        proteines: proteinesParPoisson.value,
+        glucides: glucidesParPoisson.value,
+        lipides: lipidesParPoisson.value,
+        vitamines: vitaminesParPoisson.value
+      }
+      
+      return Math.min((recu[nutrient] / besoins[nutrient]) * 100, 100)
+    }
+    
+    const getAllocation = (poisson) => {
+      switch (distributionMode.value) {
+        case 'proportionnel':
+          const totalPoids = poissonsAffames.value.reduce((sum, p) => sum + (p.poidsActuelPoisson || 0), 0)
+          return totalPoids > 0 ? ((poisson.poidsActuelPoisson || 0) / totalPoids) * 100 : 100 / poissonsAffames.value.length
+        default:
+          return 100 / poissonsAffames.value.length
+      }
+    }
+    
+    const getGainPrevu = (poisson) => {
+      const allocation = getAllocation(poisson) / 100
+      const proteinesAllouees = proteinesTotales.value * allocation
+      const glucidesAlloues = glucidesTotales.value * allocation
+      const lipidesAlloues = lipidesTotales.value * allocation
+      const vitaminesAllouees = vitaminesTotales.value * allocation
+      
+      return calculService.calculerGainPoidsComplet(
+        proteinesAllouees,
+        glucidesAlloues,
+        lipidesAlloues,
+        vitaminesAllouees
+      )
+    }
+    
+    const getOverallClass = (pourcentage) => {
+      if (pourcentage >= 100) return 'excellent'
+      if (pourcentage >= 80) return 'good'
+      if (pourcentage >= 50) return 'medium'
+      return 'low'
+    }
+    
+    const getSatisfactionMessage = (pourcentage) => {
+      if (pourcentage >= 100) return 'Tous les besoins sont satisfaits'
+      if (pourcentage >= 80) return 'Besoins presque satisfaits'
+      if (pourcentage >= 50) return 'Besoins partiellement satisfaits'
+      return 'Besoins insuffisants'
+    }
+    
+    const getGainClass = (gain) => {
+      if (gain >= 20) return 'high'
+      if (gain >= 15) return 'medium-high'
+      if (gain >= 10) return 'medium'
+      if (gain >= 5) return 'low'
+      return 'very-low'
+    }
+    
+    // Méthodes d'interaction
     const selectAliment = (aliment) => {
       selectedAlimentId.value = aliment.idAliment
       showCustomAliment.value = false
@@ -631,86 +877,39 @@ export default {
       quantitePlat.value = Math.max(0.1, Math.min(quantitePlat.value, maxQuantite.value))
     }
     
-    const formatPoids = (poids) => {
-      return poids ? Math.round(poids * 100) / 100 : 0
-    }
-    
-    const getProgression = (poisson) => {
-      if (!poisson.poidsActuelPoisson || !poisson.poidsMaximalPoisson) return 0
-      return Math.round((poisson.poidsActuelPoisson / poisson.poidsMaximalPoisson) * 100)
-    }
-    
-    const getAllocation = (poisson) => {
-      switch (distributionMode.value) {
-        case 'proportionnel':
-          const totalPoids = poissonsAffames.value.reduce((sum, p) => sum + p.poidsActuelPoisson, 0)
-          return totalPoids > 0 ? (poisson.poidsActuelPoisson / totalPoids) * 100 : 100 / poissonsAffames.value.length
-        default:
-          return 100 / poissonsAffames.value.length
-      }
-    }
-    
-    const getGainPrevu = (poisson) => {
-      const allocation = getAllocation(poisson) / 100
-      const proteinesAllouees = proteinesTotales.value * allocation
-      const glucidesAlloues = glucidesTotales.value * allocation
-      return calculService.calculerGainPoids(proteinesAllouees, glucidesAlloues)
-    }
-    
-    const getSatisfactionClass = (pourcentage) => {
-      if (pourcentage >= 100) return 'excellent'
-      if (pourcentage >= 80) return 'good'
-      if (pourcentage >= 50) return 'medium'
-      return 'low'
-    }
-    
-    const getOverallClass = (pourcentage) => {
-      if (pourcentage >= 100) return 'excellent'
-      if (pourcentage >= 80) return 'good'
-      if (pourcentage >= 50) return 'medium'
-      return 'low'
-    }
-    
-    const getSatisfactionMessage = (pourcentage) => {
-      if (pourcentage >= 100) return 'Tous les besoins sont satisfaits'
-      if (pourcentage >= 80) return 'Besoins presque satisfaits'
-      if (pourcentage >= 50) return 'Besoins partiellement satisfaits'
-      return 'Besoins insuffisants'
-    }
-    
-    const getGainClass = (gain) => {
-      if (gain >= 15) return 'high'
-      if (gain >= 10) return 'medium'
-      if (gain >= 5) return 'low'
-      return 'very-low'
-    }
-    
     // Exécuter le nourrissage
     const executerNourrissage = async () => {
       if (!canNourrir.value) return
       
       loading.value = true
       try {
-        // Préparer les données
         const alimentData = showCustomAliment.value ? customAliment.value : selectedAliment.value
         
-        const result = await nourrissageService.nourrirPoissons(
-          quantitePlat.value,
-          alimentData.proteinesParKg || alimentData.proteinesParKgAliment,
-          alimentData.glucidesParKg || alimentData.glucidesParKgAliment
-        )
+        const result = await api.post('/nourrissage/nourrir', null, {
+          params: {
+            quantitePlat: quantitePlat.value,
+            proteinesParKg: alimentData.proteinesParKg || alimentData.proteinesParKgAliment,
+            glucidesParKg: alimentData.glucidesParKg || alimentData.glucidesParKgAliment,
+            lipidesParKg: alimentData.lipidesParKg || alimentData.lipidesParKgAliment || 5,
+            vitaminesParKg: alimentData.vitaminesParKg || alimentData.vitaminesParKgAliment || 0.5
+          }
+        })
         
         // Afficher le résultat
         resultatNourrissage.value = {
-          message: `Nourrissage réussi !`,
-          poissonsNourris: result.poissonsNourris || stats.value.poissonsAffames,
+          message: `Nourrissage réussi ! ${result.data.message || ''}`,
+          poissonsNourris: stats.value.poissonsAffames,
           nourritureUtilisee: quantitePlat.value,
           gainTotal: gainTotalPrevu.value,
           coutTotal: coutTotal.value,
+          proteinesTotales: proteinesTotales.value.toFixed(1),
+          glucidesTotales: glucidesTotales.value.toFixed(1),
+          lipidesTotales: lipidesTotales.value.toFixed(1),
+          vitaminesTotales: vitaminesTotales.value.toFixed(2),
           details: poissonsAffames.value.map(p => ({
             id: p.idPoisson,
             nom: p.nomPoisson,
-            gain: getGainPrevu(p)
+            gain: getGainPrevu(p).toFixed(1)
           }))
         }
         
@@ -733,6 +932,25 @@ export default {
       router.push('/historique')
     }
     
+    const exporterRapport = () => {
+      const rapport = {
+        date: new Date().toISOString(),
+        nourrissage: resultatNourrissage.value,
+        aliment: selectedAliment.value.nomAliment || 'Personnalisé',
+        parametres: {
+          quantitePlat: quantitePlat.value,
+          modeDistribution: distributionMode.value
+        },
+        poissonsNourris: stats.value.poissonsAffames
+      }
+      
+      const blob = new Blob([JSON.stringify(rapport, null, 2)], { type: 'application/json' })
+      const link = document.createElement('a')
+      link.href = URL.createObjectURL(blob)
+      link.download = `rapport_nourrissage_${new Date().toISOString().split('T')[0]}.json`
+      link.click()
+    }
+    
     // Initialisation
     onMounted(() => {
       loadData()
@@ -740,9 +958,8 @@ export default {
     
     // Watchers
     watch(quantitePlat, updateCalculs)
-    watch(distributionMode, () => {
-      // Forcer le recalcul des allocations
-    })
+    watch(distributionMode, updateCalculs)
+    watch(selectedAlimentId, updateCalculs)
     
     return {
       // Données
@@ -764,13 +981,16 @@ export default {
       maxQuantite,
       proteinesTotales,
       glucidesTotales,
+      lipidesTotales,
+      vitaminesTotales,
       proteinesParPoisson,
       glucidesParPoisson,
+      lipidesParPoisson,
+      vitaminesParPoisson,
       satisfaction,
       gainParPoisson,
       gainTotalPrevu,
       coutTotal,
-      besoinTotal,
       scenariosGain,
       gainsParPoisson,
       gainMin,
@@ -781,22 +1001,29 @@ export default {
       validationClass,
       
       // Méthodes
+      loadData,
       selectAliment,
       toggleCustomAliment,
       incrementQuantity,
       decrementQuantity,
       updateCalculs,
+      formatStock,
+      formatPrice,
       formatPoids,
+      getAlimentQualityClass,
+      getAlimentQualityText,
       getProgression,
+      getNutrientPercentage,
       getAllocation,
       getGainPrevu,
-      getSatisfactionClass,
       getOverallClass,
       getSatisfactionMessage,
       getGainClass,
+      calculateTotalNutrients,
       executerNourrissage,
       fermerResultat,
-      voirHistorique
+      voirHistorique,
+      exporterRapport
     }
   }
 }
@@ -804,5 +1031,201 @@ export default {
 
 <style scoped>
 @import '../assets/styles/nourissage.css';
+
+/* Styles supplémentaires pour les nouveaux éléments */
+
+.aliment-details .nutrient {
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-right: 4px;
+}
+
+.nutrient.protein {
+  background-color: #eff6ff;
+  color: #1d4ed8;
+}
+
+.nutrient.carbs {
+  background-color: #f0fdf4;
+  color: #047857;
+}
+
+.nutrient.lipid {
+  background-color: #fefce8;
+  color: #ca8a04;
+}
+
+.nutrient.vitamin {
+  background-color: #f5f3ff;
+  color: #7c3aed;
+}
+
+.aliment-quality {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-weight: 600;
+  margin-left: 8px;
+}
+
+.aliment-quality.excellent {
+  background-color: #dcfce7;
+  color: #166534;
+}
+
+.aliment-quality.good {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.aliment-quality.medium {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.aliment-quality.low {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+.calc-item .calc-value.small {
+  font-size: 11px;
+}
+
+.calc-value.protein {
+  color: #1d4ed8;
+}
+
+.calc-value.carbs {
+  color: #047857;
+}
+
+.calc-value.lipid {
+  color: #ca8a04;
+}
+
+.calc-value.vitamin {
+  color: #7c3aed;
+}
+
+.calc-value.price {
+  color: #059669;
+  font-weight: 700;
+}
+
+.meter-fill.protein {
+  background-color: #3b82f6;
+}
+
+.meter-fill.carbs {
+  background-color: #10b981;
+}
+
+.meter-fill.lipid {
+  background-color: #f59e0b;
+}
+
+.meter-fill.vitamin {
+  background-color: #8b5cf6;
+}
+
+.overall-status {
+  margin-top: 10px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.overall-status.warning {
+  background-color: #fef3c7;
+  color: #92400e;
+  border-left: 4px solid #f59e0b;
+}
+
+.nutrition-bars {
+  display: flex;
+  height: 4px;
+  border-radius: 2px;
+  overflow: hidden;
+  margin: 8px 0;
+}
+
+.nutrient-bar {
+  height: 100%;
+}
+
+.nutrient-bar.protein {
+  background-color: #3b82f6;
+}
+
+.nutrient-bar.carbs {
+  background-color: #10b981;
+}
+
+.nutrient-bar.lipid {
+  background-color: #f59e0b;
+}
+
+.nutrient-bar.vitamin {
+  background-color: #8b5cf6;
+}
+
+.nutrition-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin: 15px 0;
+}
+
+.nutrition-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  border-radius: 6px;
+  font-weight: 600;
+}
+
+.nutrition-item.protein {
+  background-color: #eff6ff;
+  color: #1d4ed8;
+}
+
+.nutrition-item.carbs {
+  background-color: #f0fdf4;
+  color: #047857;
+}
+
+.nutrition-item.lipid {
+  background-color: #fefce8;
+  color: #ca8a04;
+}
+
+.nutrition-item.vitamin {
+  background-color: #f5f3ff;
+  color: #7c3aed;
+}
+
+.chart-bar.high {
+  background-color: #10b981;
+}
+
+.chart-bar.medium-high {
+  background-color: #22c55e;
+}
+
+.chart-bar.medium {
+  background-color: #f59e0b;
+}
+
+.chart-bar.low {
+  background-color: #f97316;
+}
+
+.chart-bar.very-low {
+  background-color: #ef4444;
+}
 </style>
 
