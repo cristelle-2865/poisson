@@ -45,6 +45,13 @@ public class CompositionPlat {
     @Column(name = "date_modification_composition")
     private LocalDateTime dateModificationComposition = LocalDateTime.now();
     
+    // CompositionPlat.java - AJOUTER ces champs
+    @Column(name = "lipides_composition", precision = 8, scale = 2)
+    private BigDecimal lipidesComposition;
+
+    @Column(name = "vitamines_composition", precision = 8, scale = 2)
+    private BigDecimal vitaminesComposition;
+
     // Méthode pour calculer automatiquement les valeurs
     @PrePersist
     @PreUpdate
@@ -62,6 +69,15 @@ public class CompositionPlat {
             
             glucidesComposition = poidsAlimentComposition
                 .multiply(aliment.getGlucidesParKgAliment())
+                .divide(new BigDecimal("1000"), 2, BigDecimal.ROUND_HALF_UP);
+
+            lipidesComposition = poidsAlimentComposition
+            .multiply(aliment.getLipidesParKgAliment())
+            .divide(new BigDecimal("1000"), 2, BigDecimal.ROUND_HALF_UP);
+        
+            // AJOUTER : Calcul des vitamines
+            vitaminesComposition = poidsAlimentComposition
+                .multiply(aliment.getVitaminesParKgAliment())
                 .divide(new BigDecimal("1000"), 2, BigDecimal.ROUND_HALF_UP);
         }
     }

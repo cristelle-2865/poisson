@@ -49,5 +49,14 @@ public class Aliment {
     @OneToMany(mappedBy = "aliment", fetch = FetchType.LAZY)
     @JsonIgnore // IMPORTANT: Éviter la récursion
     private java.util.List<CompositionPlat> compositions = new java.util.ArrayList<>();
+
+    // Aliment.java - AJOUTER ces champs
+    @Column(name = "lipides_par_kg_aliment", nullable = false, precision = 8, scale = 2)
+    private BigDecimal lipidesParKgAliment = BigDecimal.ZERO;
+
+    @Column(name = "vitamines_par_kg_aliment", nullable = false, precision = 8, scale = 2)
+    private BigDecimal vitaminesParKgAliment = BigDecimal.ZERO;
+
+    // Mettre à jour la valeur par défaut dans le constructeur si nécessaire
 }
 

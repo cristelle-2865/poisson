@@ -67,6 +67,19 @@ public class Poisson {
     @Column(name = "date_modification_poisson")
     private LocalDateTime dateModificationPoisson = LocalDateTime.now();
     
+    // Poisson.java - AJOUTER ces champs pour les besoins
+    @Transient
+    public BigDecimal getBesoinsLipides() {
+        // 1g de lipides par kg de poids corporel par jour
+        return this.poidsActuelPoisson.multiply(new BigDecimal("0.001"));
+    }
+
+    @Transient
+    public BigDecimal getBesoinsVitamines() {
+        // 0.5g de vitamines par kg de poids corporel par jour
+        return this.poidsActuelPoisson.multiply(new BigDecimal("0.0005"));
+    }
+    
     // Relation avec le bassin actuel
     @ManyToOne
     @JoinColumn(name = "id_piscine_actuel")

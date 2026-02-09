@@ -61,6 +61,18 @@ public class Plat {
     @JsonIgnoreProperties({"plat", "hibernateLazyInitializer", "handler"}) // AJOUTEZ
     private List<CompositionPlat> compositions = new ArrayList<>();
     
+    @Column(name = "lipides_total_plat", precision = 8, scale = 2)
+    private BigDecimal lipidesTotalPlat = BigDecimal.ZERO;
+
+    @Column(name = "vitamines_total_plat", precision = 8, scale = 2)
+    private BigDecimal vitaminesTotalPlat = BigDecimal.ZERO;
+
+    @Column(name = "lipides_par_kg_plat", precision = 8, scale = 2)
+    private BigDecimal lipidesParKgPlat = BigDecimal.ZERO;
+
+    @Column(name = "vitamines_par_kg_plat", precision = 8, scale = 2)
+    private BigDecimal vitaminesParKgPlat = BigDecimal.ZERO;
+
     // NOUVELLE MÉTHODE : Appelée après chaque chargement de l'entité
     @PostLoad
     @PostPersist
@@ -73,6 +85,8 @@ public class Plat {
         BigDecimal totalCout = BigDecimal.ZERO;
         BigDecimal totalProteines = BigDecimal.ZERO;
         BigDecimal totalGlucides = BigDecimal.ZERO;
+        BigDecimal totalLipides = BigDecimal.ZERO; // NOUVEAU
+        BigDecimal totalVitamines = BigDecimal.ZERO; // NOUVEAU
         
         if (compositions != null) {
             log.info("  Nombre de compositions: {}", compositions.size());
@@ -80,7 +94,6 @@ public class Plat {
             for (CompositionPlat comp : compositions) {
                 if (comp.getPoidsAlimentComposition() != null) {
                     totalPoids = totalPoids.add(comp.getPoidsAlimentComposition());
-                    log.info("  + Composition: {}kg", comp.getPoidsAlimentComposition());
                 }
                 if (comp.getCoutAlimentComposition() != null) {
                     totalCout = totalCout.add(comp.getCoutAlimentComposition());
@@ -91,17 +104,23 @@ public class Plat {
                 if (comp.getGlucidesComposition() != null) {
                     totalGlucides = totalGlucides.add(comp.getGlucidesComposition());
                 }
+                // NOUVEAU : Lipides
+                if (comp.getLipidesComposition() != null) {
+                    totalLipides = totalLipides.add(comp.getLipidesComposition());
+                }
+                // NOUVEAU : Vitamines
+                if (comp.getVitaminesComposition() != null) {
+                    totalVitamines = totalVitamines.add(comp.getVitaminesComposition());
+                }
             }
-        } else {
-            log.warn("  ⚠️ List compositions est null!");
         }
         
         this.poidsTotalPlat = totalPoids;
         this.coutTotalPlat = totalCout;
         this.proteinesTotalPlat = totalProteines;
         this.glucidesTotalPlat = totalGlucides;
-        
-        log.info("  = Poids total calculé: {}kg", totalPoids);
+        this.lipidesTotalPlat = totalLipides; // NOUVEAU
+        this.vitaminesTotalPlat = totalVitamines; // NOUVEAU
         
         // Calculer par kg
         if (this.poidsTotalPlat.compareTo(BigDecimal.ZERO) > 0) {
@@ -112,15 +131,23 @@ public class Plat {
             this.glucidesParKgPlat = this.glucidesTotalPlat
                 .multiply(new BigDecimal("1000"))
                 .divide(this.poidsTotalPlat, 2, RoundingMode.HALF_UP);
+            
+            // NOUVEAU : Lipides par kg
+            this.lipidesParKgPlat = this.lipidesTotalPlat
+                .multiply(new BigDecimal("1000"))
+                .divide(this.poidsTotalPlat, 2, RoundingMode.HALF_UP);
+            
+            // NOUVEAU : Vitamines par kg
+            this.vitaminesParKgPlat = this.vitaminesTotalPlat
+                .multiply(new BigDecimal("1000"))
+                .divide(this.poidsTotalPlat, 2, RoundingMode.HALF_UP);
         } else {
             this.proteinesParKgPlat = BigDecimal.ZERO;
             this.glucidesParKgPlat = BigDecimal.ZERO;
-            log.warn("  ⚠️ Poids total = 0, impossible de calculer par kg");
+            this.lipidesParKgPlat = BigDecimal.ZERO; // NOUVEAU
+            this.vitaminesParKgPlat = BigDecimal.ZERO; // NOUVEAU
         }
-        
-        log.info("✅ FIN calculTotaux() - Poids: {}kg, Coût: {}MGA", 
-            this.poidsTotalPlat, this.coutTotalPlat);
-    }
+    } 
     
     // Méthode pour ajouter une composition (utile pour l'interface)
     public void ajouterComposition(Aliment aliment, BigDecimal poids) {
