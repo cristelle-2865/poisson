@@ -112,7 +112,7 @@ const routes = [
         meta: { 
           title: 'Nourrissage des Poissons',
           icon: '🍽️',
-          breadcrumb: 'Nourrissage'
+          breadcrumb: 'Nourrissage New'
         }
       },
       
