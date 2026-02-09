@@ -15,15 +15,15 @@ export const calculService = {
     // Règle de trois : 
     // Pour 5g de plat → 2g protéines et 4g glucides
     // Donc pour quantitePlatKg kg de plat :
-    const platEnGrammes = quantitePlatKg * 1000; // Convertir en grammes
+      const platEnGrammes = quantitePlatKg * 1000; // Convertir en grammes
     
-    const proteinesTotal = (2 * platEnGrammes) / 5; // (2g * quantiteG) / 5g
-    const glucidesTotal = (4 * platEnGrammes) / 5;  // (4g * quantiteG) / 5g
-    
-    return {
-      proteinesTotal: Math.round(proteinesTotal * 100) / 100, // Arrondi à 2 décimales
-      glucidesTotal: Math.round(glucidesTotal * 100) / 100
-    };
+      const proteinesTotal = (platEnGrammes * proteinesParKg) / 1000;
+      const glucidesTotal = (platEnGrammes * glucidesParKg) / 1000;
+      
+      return {
+        proteinesTotal: Math.round(proteinesTotal * 100) / 100,
+        glucidesTotal: Math.round(glucidesTotal * 100) / 100
+      };
   },
   
   /**
@@ -33,19 +33,37 @@ export const calculService = {
    * @returns {number} Gain de poids en grammes
    */
   calculerGainPoids(proteinesRecues, glucidesRecus) {
-    // Règles exactes du cahier des charges :
-    if (proteinesRecues >= 4 && glucidesRecus >= 8) {
-      return 20; // Besoins totaux satisfaits (double des besoins)
-    } else if (proteinesRecues >= 2 && glucidesRecus >= 4) {
-      return 10; // Besoins minimums satisfaits
-    } else if (proteinesRecues >= 4 && glucidesRecus >= 4 && glucidesRecus < 8) {
-      return 15; // Cas spécifique : protéines doublées mais glucides minimum
-    } else if ((proteinesRecues >= 2 && glucidesRecus < 4) || 
-               (proteinesRecues < 2 && glucidesRecus >= 4)) {
-      return 5;  // Un seul type de nutriment reçu
-    } else {
-      return 0;  // Nutrition insuffisante
+    // Aligner sur le backend - interpolation linéaire
+    const BESOIN_PROTEINES = 2.0;
+    const BESOIN_GLUCIDES = 4.0;
+    
+    // Cas standards (comme backend)
+    if (proteinesRecues === BESOIN_PROTEINES && glucidesRecus === BESOIN_GLUCIDES) {
+      return 10;
     }
+    
+    if (proteinesRecues === BESOIN_PROTEINES && glucidesRecus === 0) {
+      return 5;
+    }
+    
+    if (proteinesRecues === 0 && glucidesRecus === BESOIN_GLUCIDES) {
+      return 5;
+    }
+    
+    if (proteinesRecues === 4 && glucidesRecus === BESOIN_GLUCIDES) {
+      return 15;
+    }
+    
+    if (proteinesRecues === 4 && glucidesRecus === 8) {
+      return 20;
+    }
+    
+    // Interpolation linéaire comme le backend
+    const tauxProteines = Math.min(proteinesRecues / 4, 1);
+    const tauxGlucides = Math.min(glucidesRecus / 8, 1);
+    const tauxMoyen = (tauxProteines + tauxGlucides) / 2;
+    
+    return Math.round(tauxMoyen * 20 * 100) / 100; // Arrondi à 2 décimales
   },
   
   /**
@@ -195,5 +213,7 @@ export const calculService = {
     return Math.ceil(poidsRestant / gainJournalierMoyen);
   }
 };
+
+
 
 
