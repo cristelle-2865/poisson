@@ -314,16 +314,197 @@
         </div>
       </div>
 
-      <!-- Section historique -->
+      <!-- Section historique des nourrissages -->
       <div class="historique-section">
         <div class="section-header">
-          <h2>📜 Historique du bassin</h2>
-          <button @click="toggleHistorique" class="btn-link">
-            {{ showHistorique ? 'Masquer' : 'Afficher' }}
+          <h2>📜 Historique des Nourrissages</h2>
+          <div class="section-actions">
+            <button @click="toggleViewMode" class="btn-toggle-view">
+              {{ historiqueViewMode === 'table' ? '📊 Vue graphique' : '📋 Vue tableau' }}
+            </button>
+            <button @click="loadHistoriqueNourrissage" class="btn-secondary" :disabled="historiqueNourrissageLoading">
+              🔄 Actualiser
+            </button>
+          </div>
+        </div>
+
+        <!-- Filtres pour l'historique des nourrissages -->
+        <div class="filters-section" v-if="historiqueViewMode === 'table'">
+          <div class="filter-group">
+            <input 
+              type="text" 
+              v-model="historiqueFilter.search" 
+              placeholder="Rechercher un poisson..."
+              class="search-input"
+            />
+          </div>
+          <div class="filter-group">
+            <select v-model="historiqueFilter.dateRange" @change="onDateRangeChange" class="filter-select">
+              <option value="7">7 derniers jours</option>
+              <option value="30">30 derniers jours</option>
+              <option value="90">3 derniers mois</option>
+              <option value="365">1 an</option>
+              <option value="all">Tout l'historique</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <select v-model="historiqueSort" class="filter-select">
+              <option value="dateDesc">Date ▼</option>
+              <option value="dateAsc">Date ▲</option>
+              <option value="poissonAsc">Poisson A-Z</option>
+              <option value="poissonDesc">Poisson Z-A</option>
+              <option value="gainDesc">Gain ▼</option>
+              <option value="gainAsc">Gain ▲</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Vue tableau de l'historique -->
+        <div v-if="historiqueViewMode === 'table'" class="historique-content">
+          <div v-if="historiqueNourrissageLoading" class="loading-small">
+            <div class="spinner-small"></div>
+            <p>Chargement de l'historique des nourrissages...</p>
+          </div>
+
+          <div v-else-if="filteredHistoriqueNourrissage.length > 0" class="historique-table-container">
+            <table class="historique-table">
+              <thead>
+                <tr>
+                  <th @click="sortHistoriqueBy('dateNourrissageFisakafoanana')">
+                    Date 📅
+                    <span v-if="historiqueSortColumn === 'dateNourrissageFisakafoanana'">
+                      {{ historiqueSortDirection === 'asc' ? '↑' : '↓' }}
+                    </span>
+                  </th>
+                  <th @click="sortHistoriqueBy('nomPoisson')">
+                    Poisson 🐟
+                    <span v-if="historiqueSortColumn === 'nomPoisson'">
+                      {{ historiqueSortDirection === 'asc' ? '↑' : '↓' }}
+                    </span>
+                  </th>
+                  <th>Race</th>
+                  <th @click="sortHistoriqueBy('ancienPoidsFisakafoanana')">
+                    Poids avant ⚖️
+                    <span v-if="historiqueSortColumn === 'ancienPoidsFisakafoanana'">
+                      {{ historiqueSortDirection === 'asc' ? '↑' : '↓' }}
+                    </span>
+                  </th>
+                  <th @click="sortHistoriqueBy('nouveauPoidsFisakafoanana')">
+                    Poids après ⚖️
+                    <span v-if="historiqueSortColumn === 'nouveauPoidsFisakafoanana'">
+                      {{ historiqueSortDirection === 'asc' ? '↑' : '↓' }}
+                    </span>
+                  </th>
+                  <th @click="sortHistoriqueBy('gainPoidsFisakafoanana')">
+                    Gain 📈
+                    <span v-if="historiqueSortColumn === 'gainPoidsFisakafoanana'">
+                      {{ historiqueSortDirection === 'asc' ? '↑' : '↓' }}
+                    </span>
+                  </th>
+                  <th @click="sortHistoriqueBy('quantiteNourritureFisakafoanana')">
+                    Nourriture 🍽️
+                    <span v-if="historiqueSortColumn === 'quantiteNourritureFisakafoanana'">
+                      {{ historiqueSortDirection === 'asc' ? '↑' : '↓' }}
+                    </span>
+                  </th>
+                  <th @click="sortHistoriqueBy('tauxSatisfactionFisakafoanana')">
+                    Satisfaction
+                    <span v-if="historiqueSortColumn === 'tauxSatisfactionFisakafoanana'">
+                      {{ historiqueSortDirection === 'asc' ? '↑' : '↓' }}
+                    </span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="item in filteredHistoriqueNourrissage" :key="item.idFisakafoanana">
+                  <td>
+                    <div class="date-cell">
+                      <span class="date">{{ formatDateShort(item.dateNourrissageFisakafoanana) }}</span>
+                      <span class="time">{{ formatTime(item.heureNourrissageFisakafoanana) }}</span>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="poisson-cell">
+                      <span class="poisson-name">{{ item.poisson?.nomPoisson || 'N/A' }}</span>
+                      <span class="poisson-id">#{{ item.poisson?.idPoisson }}</span>
+                    </div>
+                  </td>
+                  <td>{{ item.poisson?.racePoisson?.nomRacePoisson || 'Non défini' }}</td>
+                  <td>{{ formatPoids(item.ancienPoidsFisakafoanana) }} g</td>
+                  <td>
+                    <div class="weight-cell">
+                      {{ formatPoids(item.nouveauPoidsFisakafoanana) }} g
+                      <span class="weight-diff positive" v-if="item.gainPoidsFisakafoanana > 0">
+                        +{{ formatPoids(item.gainPoidsFisakafoanana) }}g
+                      </span>
+                    </div>
+                  </td>
+                  <td>
+                    <span class="gain-badge" :class="getGainClass(item.gainPoidsFisakafoanana)">
+                      {{ formatPoids(item.gainPoidsFisakafoanana) }} g
+                    </span>
+                  </td>
+                  <td>{{ formatPoids(item.quantiteNourritureFisakafoanana) }} g</td>
+                  <td>
+                    <div class="satisfaction-cell">
+                      <div class="satisfaction-bar">
+                        <div 
+                          class="satisfaction-fill" 
+                          :style="{ width: item.tauxSatisfactionFisakafoanana + '%' }"
+                          :class="getSatisfactionClass(item.tauxSatisfactionFisakafoanana)"
+                        ></div>
+                      </div>
+                      <span class="satisfaction-text">{{ formatNumber(item.tauxSatisfactionFisakafoanana) }}%</span>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            
+            <!-- Pagination -->
+            <div class="pagination" v-if="filteredHistoriqueNourrissage.length > historiqueItemsPerPage">
+              <button @click="prevHistoriquePage" :disabled="historiqueCurrentPage === 1">← Précédent</button>
+              <span class="page-info">
+                Page {{ historiqueCurrentPage }} sur {{ historiqueTotalPages }}
+              </span>
+              <button @click="nextHistoriquePage" :disabled="historiqueCurrentPage === historiqueTotalPages">Suivant →</button>
+            </div>
+          </div>
+
+          <div v-else class="no-historique">
+            <p>Aucun historique de nourrissage disponible pour ce bassin.</p>
+          </div>
+        </div>
+
+        <!-- Vue graphique de l'historique -->
+        <div v-else class="graph-view">
+          <div class="graph-container">
+            <h3>Évolution du gain de poids moyen par jour</h3>
+            <canvas id="gainChartBassin" ref="gainChartBassin"></canvas>
+          </div>
+          
+          <div class="graph-container">
+            <h3>Distribution des taux de satisfaction</h3>
+            <canvas id="satisfactionChartBassin" ref="satisfactionChartBassin"></canvas>
+          </div>
+          
+          <div class="graph-container">
+            <h3>Consommation de nourriture par poisson</h3>
+            <canvas id="nourritureChartBassin" ref="nourritureChartBassin"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section historique des affectations (ancienne) -->
+      <div class="affectations-section">
+        <div class="section-header">
+          <h2>📜 Historique des Affectations</h2>
+          <button @click="toggleHistoriqueAffectations" class="btn-link">
+            {{ showHistoriqueAffectations ? 'Masquer' : 'Afficher' }}
           </button>
         </div>
 
-        <div v-if="showHistorique" class="historique-content">
+        <div v-if="showHistoriqueAffectations" class="historique-content">
           <div v-if="historiqueLoading" class="loading-small">
             <div class="spinner-small"></div>
             <p>Chargement de l'historique...</p>
@@ -350,7 +531,7 @@
           </div>
 
           <div v-else class="no-historique">
-            <p>Aucun historique disponible pour ce bassin.</p>
+            <p>Aucun historique d'affectation disponible pour ce bassin.</p>
           </div>
         </div>
       </div>
@@ -394,7 +575,7 @@
                   <div class="poisson-details">
                     <span>{{ poisson.racePoisson?.nomRacePoisson || 'Race inconnue' }}</span>
                     <span>{{ poisson.poidsActuelPoisson }} kg</span>
-                    <span>{{ poisson.prixVentePoisson }} €</span>
+                    <span>{{ poisson.prixVentePoisson }} MGA</span>
                   </div>
                 </div>
                 <div class="poisson-status">
@@ -466,10 +647,14 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { Chart, registerables } from 'chart.js'
 import bassinService from '../services/bassinService'
 import poissonService from '../services/poissonService'
+import nourrissageService from '../services/nourrissageService'
+
+Chart.register(...registerables)
 
 export default {
   name: 'DetailBassin',
@@ -482,10 +667,13 @@ export default {
     const bassin = ref(null)
     const poissons = ref([])
     const historique = ref([])
+    const historiqueNourrissage = ref([])
     const loading = ref(false)
     const historiqueLoading = ref(false)
+    const historiqueNourrissageLoading = ref(false)
     const error = ref(null)
-    const showHistorique = ref(false)
+    const showHistoriqueAffectations = ref(false)
+    const historiqueViewMode = ref('table') // 'table' ou 'graph'
     
     // Filtres et tri pour les poissons
     const poissonFilter = ref({
@@ -493,6 +681,17 @@ export default {
       status: ''
     })
     const poissonSort = ref('nomAsc')
+    
+    // Filtres et tri pour l'historique des nourrissages
+    const historiqueFilter = ref({
+      search: '',
+      dateRange: '30'
+    })
+    const historiqueSort = ref('dateDesc')
+    const historiqueSortColumn = ref('dateNourrissageFisakafoanana')
+    const historiqueSortDirection = ref('desc')
+    const historiqueCurrentPage = ref(1)
+    const historiqueItemsPerPage = ref(10)
     
     // États pour les modales
     const showAffectationModal = ref(false)
@@ -503,6 +702,16 @@ export default {
     const poissonToRemove = ref(null)
     const retraitReason = ref('Transfert')
     const customRetraitReason = ref('')
+    
+    // Références pour les graphiques
+    const gainChartBassin = ref(null)
+    const satisfactionChartBassin = ref(null)
+    const nourritureChartBassin = ref(null)
+    
+    // Instances des graphiques
+    let gainChartInstance = null
+    let satisfactionChartInstance = null
+    let nourritureChartInstance = null
     
     // Calcul des statistiques
     const nombrePoissonsActuels = computed(() => {
@@ -572,6 +781,9 @@ export default {
         const poissonsData = await bassinService.getPoissons(route.params.id)
         poissons.value = Array.isArray(poissonsData) ? poissonsData : []
         
+        // Charger l'historique des nourrissages pour ce bassin
+        await loadHistoriqueNourrissage()
+        
       } catch (err) {
         console.error('Erreur chargement détail bassin:', err)
         error.value = err.response?.data?.message || 'Erreur lors du chargement du bassin'
@@ -580,9 +792,45 @@ export default {
       }
     }
     
-    // Charger l'historique
+    // Charger l'historique des nourrissages
+    const loadHistoriqueNourrissage = async () => {
+      historiqueNourrissageLoading.value = true
+      
+      try {
+        const allData = []
+        
+        // Récupérer l'historique pour chaque poisson du bassin
+        for (const poisson of poissons.value) {
+          try {
+            const data = await nourrissageService.getHistoriquePoisson(poisson.idPoisson)
+            if (Array.isArray(data)) {
+              allData.push(...data)
+            }
+          } catch (error) {
+            console.warn(`Pas d'historique pour le poisson ${poisson.idPoisson}`)
+          }
+        }
+        
+        historiqueNourrissage.value = allData
+        console.log(`Historique nourrissage chargé: ${historiqueNourrissage.value.length} entrées`)
+        
+        // Initialiser les graphiques si on est en mode graphique
+        if (historiqueViewMode.value === 'graph') {
+          await nextTick()
+          initCharts()
+        }
+        
+      } catch (error) {
+        console.error('Erreur chargement historique nourrissage:', error)
+        historiqueNourrissage.value = []
+      } finally {
+        historiqueNourrissageLoading.value = false
+      }
+    }
+    
+    // Charger l'historique des affectations
     const loadHistorique = async () => {
-      if (!showHistorique.value) return
+      if (!showHistoriqueAffectations.value) return
       
       historiqueLoading.value = true
       try {
@@ -614,6 +862,98 @@ export default {
         poissonsDisponibles.value = []
       } finally {
         poissonsDisponiblesLoading.value = false
+      }
+    }
+    
+    // Gestion du changement de période pour l'historique
+    const onDateRangeChange = () => {
+      historiqueCurrentPage.value = 1
+    }
+    
+    // Filtrer et trier l'historique des nourrissages
+    const filteredHistoriqueNourrissage = computed(() => {
+      let filtered = [...historiqueNourrissage.value]
+      
+      // Filtre de recherche
+      if (historiqueFilter.value.search) {
+        const query = historiqueFilter.value.search.toLowerCase()
+        filtered = filtered.filter(item => {
+          const poissonName = item.poisson?.nomPoisson?.toLowerCase() || ''
+          const raceName = item.poisson?.racePoisson?.nomRacePoisson?.toLowerCase() || ''
+          return poissonName.includes(query) || raceName.includes(query)
+        })
+      }
+      
+      // Filtre par date
+      if (historiqueFilter.value.dateRange !== 'all') {
+        const days = parseInt(historiqueFilter.value.dateRange)
+        const cutoffDate = new Date()
+        cutoffDate.setDate(cutoffDate.getDate() - days)
+        
+        filtered = filtered.filter(item => {
+          const itemDate = new Date(item.dateNourrissageFisakafoanana)
+          return itemDate >= cutoffDate
+        })
+      }
+      
+      // Trier les données
+      filtered.sort((a, b) => {
+        let aValue, bValue
+        
+        switch (historiqueSortColumn.value) {
+          case 'dateNourrissageFisakafoanana':
+            aValue = new Date(a.dateNourrissageFisakafoanana)
+            bValue = new Date(b.dateNourrissageFisakafoanana)
+            break
+          case 'nomPoisson':
+            aValue = a.poisson?.nomPoisson || ''
+            bValue = b.poisson?.nomPoisson || ''
+            break
+          default:
+            aValue = a[historiqueSortColumn.value] || 0
+            bValue = b[historiqueSortColumn.value] || 0
+        }
+        
+        if (typeof aValue === 'string') {
+          return historiqueSortDirection.value === 'asc' 
+            ? aValue.localeCompare(bValue)
+            : bValue.localeCompare(aValue)
+        } else {
+          return historiqueSortDirection.value === 'asc'
+            ? aValue - bValue
+            : bValue - aValue
+        }
+      })
+      
+      // Pagination
+      const startIndex = (historiqueCurrentPage.value - 1) * historiqueItemsPerPage.value
+      return filtered.slice(startIndex, startIndex + historiqueItemsPerPage.value)
+    })
+    
+    const historiqueTotalPages = computed(() => {
+      return Math.ceil(historiqueNourrissage.value.length / historiqueItemsPerPage.value)
+    })
+    
+    // Pagination pour l'historique
+    const nextHistoriquePage = () => {
+      if (historiqueCurrentPage.value < historiqueTotalPages.value) {
+        historiqueCurrentPage.value++
+      }
+    }
+    
+    const prevHistoriquePage = () => {
+      if (historiqueCurrentPage.value > 1) {
+        historiqueCurrentPage.value--
+      }
+    }
+    
+    // Trier l'historique par colonne
+    const sortHistoriqueBy = (column) => {
+      if (historiqueSortColumn.value === column) {
+        historiqueSortDirection.value = historiqueSortDirection.value === 'asc' ? 'desc' : 'asc'
+      } else {
+        historiqueSortColumn.value = column
+        historiqueSortDirection.value = 'asc'
       }
     }
     
@@ -665,6 +1005,267 @@ export default {
         })
     })
     
+    // Méthodes utilitaires pour l'historique
+    const formatPoids = (poids) => {
+      if (!poids) return '0'
+      return Math.round(poids * 100) / 100
+    }
+    
+    const formatNumber = (num) => {
+      if (!num) return '0'
+      return Math.round(num * 100) / 100
+    }
+    
+    const getGainClass = (gain) => {
+      if (gain > 15) return 'gain-high'
+      if (gain > 10) return 'gain-medium'
+      if (gain > 5) return 'gain-low'
+      return 'gain-very-low'
+    }
+    
+    const getSatisfactionClass = (taux) => {
+      if (taux >= 100) return 'satisfaction-high'
+      if (taux >= 80) return 'satisfaction-medium'
+      if (taux >= 60) return 'satisfaction-low'
+      return 'satisfaction-very-low'
+    }
+    
+    // Initialiser les graphiques
+    const initCharts = () => {
+      console.log('Initialisation des graphiques pour le bassin...')
+      
+      if (historiqueNourrissage.value.length === 0) {
+        console.log('Aucune donnée pour les graphiques')
+        return
+      }
+      
+      destroyCharts()
+      createGainChart()
+      createSatisfactionChart()
+      createNourritureChart()
+    }
+    
+    const destroyCharts = () => {
+      console.log('Destruction des graphiques existants...')
+      
+      const charts = [gainChartInstance, satisfactionChartInstance, nourritureChartInstance]
+      charts.forEach(chart => {
+        if (chart && typeof chart.destroy === 'function') {
+          try {
+            chart.destroy()
+          } catch (e) {
+            console.warn('Erreur lors de la destruction d\'un graphique:', e)
+          }
+        }
+      })
+      
+      gainChartInstance = null
+      satisfactionChartInstance = null
+      nourritureChartInstance = null
+    }
+    
+    const createGainChart = () => {
+      const canvas = document.getElementById('gainChartBassin')
+      if (!canvas) {
+        console.error('Canvas gainChartBassin non trouvé')
+        return
+      }
+      
+      const ctx = canvas.getContext('2d')
+      if (!ctx) {
+        console.error('Contexte canvas non disponible')
+        return
+      }
+      
+      try {
+        // Grouper par date
+        const gainsByDate = {}
+        historiqueNourrissage.value.forEach(item => {
+          const date = item.dateNourrissageFisakafoanana
+          if (!date) return
+          
+          const dateKey = formatDateShort(date)
+          if (!gainsByDate[dateKey]) {
+            gainsByDate[dateKey] = { total: 0, count: 0 }
+          }
+          gainsByDate[dateKey].total += item.gainPoidsFisakafoanana || 0
+          gainsByDate[dateKey].count++
+        })
+        
+        const dates = Object.keys(gainsByDate).sort()
+        const avgGains = dates.map(date => {
+          const data = gainsByDate[date]
+          return data.count > 0 ? data.total / data.count : 0
+        })
+        
+        gainChartInstance = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: dates,
+            datasets: [{
+              label: 'Gain moyen (g)',
+              data: avgGains,
+              borderColor: '#48bb78',
+              backgroundColor: 'rgba(72, 187, 120, 0.1)',
+              borderWidth: 2,
+              fill: true,
+              tension: 0.4
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { position: 'top' }
+            },
+            scales: {
+              y: { 
+                beginAtZero: true, 
+                title: { display: true, text: 'Grammes' }
+              },
+              x: { 
+                title: { display: true, text: 'Date' },
+                ticks: {
+                  maxRotation: 45,
+                  minRotation: 45
+                }
+              }
+            }
+          }
+        })
+        
+        console.log('Graphique gain créé avec succès')
+      } catch (error) {
+        console.error('Erreur création graphique gain:', error)
+      }
+    }
+    
+    const createSatisfactionChart = () => {
+      const canvas = document.getElementById('satisfactionChartBassin')
+      if (!canvas) {
+        console.error('Canvas satisfactionChartBassin non trouvé')
+        return
+      }
+      
+      const ctx = canvas.getContext('2d')
+      if (!ctx) {
+        console.error('Contexte canvas non disponible')
+        return
+      }
+      
+      try {
+        const categories = {
+          'Excellent (100%)': 0,
+          'Bon (80-99%)': 0,
+          'Moyen (60-79%)': 0,
+          'Faible (<60%)': 0
+        }
+        
+        historiqueNourrissage.value.forEach(item => {
+          const taux = item.tauxSatisfactionFisakafoanana || 0
+          if (taux >= 100) categories['Excellent (100%)']++
+          else if (taux >= 80) categories['Bon (80-99%)']++
+          else if (taux >= 60) categories['Moyen (60-79%)']++
+          else categories['Faible (<60%)']++
+        })
+        
+        satisfactionChartInstance = new Chart(ctx, {
+          type: 'doughnut',
+          data: {
+            labels: Object.keys(categories),
+            datasets: [{
+              data: Object.values(categories),
+              backgroundColor: [
+                '#48bb78', // Vert
+                '#4299e1', // Bleu
+                '#ed8936', // Orange
+                '#f56565'  // Rouge
+              ],
+              borderWidth: 1
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { 
+                position: 'right',
+                labels: {
+                  padding: 20
+                }
+              }
+            }
+          }
+        })
+        
+        console.log('Graphique satisfaction créé avec succès')
+      } catch (error) {
+        console.error('Erreur création graphique satisfaction:', error)
+      }
+    }
+    
+    const createNourritureChart = () => {
+      const canvas = document.getElementById('nourritureChartBassin')
+      if (!canvas) {
+        console.error('Canvas nourritureChartBassin non trouvé')
+        return
+      }
+      
+      const ctx = canvas.getContext('2d')
+      if (!ctx) {
+        console.error('Contexte canvas non disponible')
+        return
+      }
+      
+      try {
+        // Grouper par poisson
+        const nourritureByPoisson = {}
+        historiqueNourrissage.value.forEach(item => {
+          const poissonName = item.poisson?.nomPoisson || 'Inconnu'
+          if (!nourritureByPoisson[poissonName]) {
+            nourritureByPoisson[poissonName] = 0
+          }
+          nourritureByPoisson[poissonName] += item.quantiteNourritureFisakafoanana || 0
+        })
+        
+        // Prendre les 10 premiers ou tous si moins de 10
+        const sorted = Object.entries(nourritureByPoisson)
+          .sort(([, a], [, b]) => b - a)
+          .slice(0, 10)
+        
+        nourritureChartInstance = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: sorted.map(([name]) => name),
+            datasets: [{
+              label: 'Nourriture consommée (g)',
+              data: sorted.map(([, value]) => value),
+              backgroundColor: '#667eea',
+              borderWidth: 1
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: 'y',
+            plugins: {
+              legend: { display: false }
+            },
+            scales: {
+              x: { 
+                beginAtZero: true, 
+                title: { display: true, text: 'Grammes' }
+              }
+            }
+          }
+        })
+        
+        console.log('Graphique nourriture créé avec succès')
+      } catch (error) {
+        console.error('Erreur création graphique nourriture:', error)
+      }
+    }
+    
     // Méthodes utilitaires
     const calculateGrowthPercent = (poisson) => {
       if (!poisson.poidsActuelPoisson || !poisson.poidsMaximalPoisson) return 0
@@ -713,6 +1314,11 @@ export default {
       }
     }
     
+    const formatTime = (timeString) => {
+      if (!timeString) return 'N/A'
+      return timeString.substring(0, 5) // Format HH:mm
+    }
+    
     const formatDateLong = (dateString) => {
       if (!dateString) return 'Date inconnue'
       try {
@@ -733,10 +1339,19 @@ export default {
       loadData()
     }
     
-    const toggleHistorique = () => {
-      showHistorique.value = !showHistorique.value
-      if (showHistorique.value) {
+    const toggleHistoriqueAffectations = () => {
+      showHistoriqueAffectations.value = !showHistoriqueAffectations.value
+      if (showHistoriqueAffectations.value) {
         loadHistorique()
+      }
+    }
+    
+    const toggleViewMode = () => {
+      historiqueViewMode.value = historiqueViewMode.value === 'table' ? 'graph' : 'table'
+      if (historiqueViewMode.value === 'graph') {
+        nextTick(() => {
+          initCharts()
+        })
       }
     }
     
@@ -746,7 +1361,7 @@ export default {
     }
     
     const vendrePoisson = async (poisson) => {
-      if (!confirm(`Vendre ${poisson.nomPoisson} pour ${poisson.prixVentePoisson} € ?`)) return
+      if (!confirm(`Vendre ${poisson.nomPoisson} pour ${poisson.prixVentePoisson} MGA ?`)) return
       
       try {
         await poissonService.vendrePoisson(poisson.idPoisson)
@@ -832,6 +1447,14 @@ export default {
       }
     })
     
+    watch(historiqueViewMode, (newVal) => {
+      if (newVal === 'graph') {
+        nextTick(() => {
+          initCharts()
+        })
+      }
+    })
+    
     // Initialisation
     onMounted(() => {
       loadData()
@@ -842,14 +1465,23 @@ export default {
       bassin,
       poissons,
       historique,
+      historiqueNourrissage,
       loading,
       historiqueLoading,
+      historiqueNourrissageLoading,
       error,
-      showHistorique,
+      showHistoriqueAffectations,
+      historiqueViewMode,
       
       // Filtres et tri
       poissonFilter,
       poissonSort,
+      historiqueFilter,
+      historiqueSort,
+      historiqueSortColumn,
+      historiqueSortDirection,
+      historiqueCurrentPage,
+      historiqueTotalPages,
       
       // Modales
       showAffectationModal,
@@ -867,6 +1499,7 @@ export default {
       tauxOccupation,
       hasTechnicalSpecs,
       filteredPoissons,
+      filteredHistoriqueNourrissage,
       
       // Méthodes utilitaires
       isPretAVendre,
@@ -876,11 +1509,18 @@ export default {
       formatDate,
       formatDateShort,
       formatDateLong,
+      formatTime,
+      formatPoids,
+      formatNumber,
+      getGainClass,
+      getSatisfactionClass,
       
       // Méthodes
       loadData,
       refreshData,
-      toggleHistorique,
+      loadHistoriqueNourrissage,
+      toggleHistoriqueAffectations,
+      toggleViewMode,
       voirDetailsPoisson,
       vendrePoisson,
       retirerPoisson,
@@ -890,7 +1530,11 @@ export default {
       closeAffectationModal,
       closeRetraitModal,
       affecterPoisson,
-      goBack
+      goBack,
+      onDateRangeChange,
+      sortHistoriqueBy,
+      nextHistoriquePage,
+      prevHistoriquePage
     }
   }
 }
@@ -899,4 +1543,6 @@ export default {
 <style scoped>
 @import '../assets/styles/bassin-detail';
 </style>
+
+
 

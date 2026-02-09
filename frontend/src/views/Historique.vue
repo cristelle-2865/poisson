@@ -53,6 +53,16 @@
         </div>
         
         <div class="filter-group">
+          <label for="bassin-filter">Bassin :</label>
+          <select v-model="selectedBassin" @change="loadHistorique">
+            <option value="">Tous les bassins</option>
+            <option v-for="bassin in bassinsList" :key="bassin.idPiscine" :value="bassin.idPiscine">
+              {{ bassin.nomPiscine }} ({{ getNombrePoissons(bassin) }} poissons)
+            </option>
+          </select>
+        </div>
+        
+        <div class="filter-group">
           <label for="statut-filter">Statut :</label>
           <select v-model="statutFilter" @change="loadHistorique">
             <option value="">Tous</option>
@@ -128,8 +138,9 @@
           <input 
             type="text" 
             v-model="searchQuery" 
-            placeholder="Rechercher par nom, race..." 
+            placeholder="Rechercher par nom, race, bassin..." 
             class="search-input"
+            @input="onSearchInput"
           />
           <button class="btn-toggle-view" @click="toggleView">
             {{ viewMode === 'table' ? '📊 Vue graphique' : '📋 Vue tableau' }}
@@ -157,6 +168,12 @@
               <th @click="sortBy('race')">
                 Race
                 <span v-if="sortColumn === 'race'">
+                  {{ sortDirection === 'asc' ? '↑' : '↓' }}
+                </span>
+              </th>
+              <th @click="sortBy('bassin')">
+                Bassin 🏊
+                <span v-if="sortColumn === 'bassin'">
                   {{ sortDirection === 'asc' ? '↑' : '↓' }}
                 </span>
               </th>
@@ -209,6 +226,13 @@
                 </div>
               </td>
               <td>{{ item.poisson?.racePoisson?.nomRacePoisson || 'Non défini' }}</td>
+              <td>
+                <div class="bassin-cell" v-if="item.poisson?.piscineActuelle">
+                  <span class="bassin-name">{{ item.poisson.piscineActuelle.nomPiscine }}</span>
+                  <span class="bassin-id">#{{ item.poisson.piscineActuelle.idPiscine }}</span>
+                </div>
+                <span v-else class="no-bassin">Non affecté</span>
+              </td>
               <td>{{ formatPoids(item.ancienPoidsFisakafoanana) }} g</td>
               <td>
                 <div class="weight-cell">
@@ -289,17 +313,17 @@
       <div v-else class="graph-view">
         <div class="graph-container">
           <h3>Évolution du gain de poids moyen par jour</h3>
-          <canvas ref="gainChart"></canvas>
+          <canvas id="gainChart" ref="gainChart"></canvas>
         </div>
         
         <div class="graph-container">
           <h3>Distribution des taux de satisfaction</h3>
-          <canvas ref="satisfactionChart"></canvas>
+          <canvas id="satisfactionChart" ref="satisfactionChart"></canvas>
         </div>
         
         <div class="graph-container">
           <h3>Consommation de nourriture</h3>
-          <canvas ref="nourritureChart"></canvas>
+          <canvas id="nourritureChart" ref="nourritureChart"></canvas>
         </div>
       </div>
     </div>
@@ -311,7 +335,7 @@
         <button class="btn-close" @click="selectedPoissonEvolution = null">×</button>
       </div>
       <div class="evolution-chart">
-        <canvas ref="poissonEvolutionChart"></canvas>
+        <canvas id="poissonEvolutionChart" ref="poissonEvolutionChart"></canvas>
       </div>
     </div>
 
@@ -338,6 +362,13 @@
               <div class="detail-item">
                 <label>Poisson :</label>
                 <span>{{ selectedItem.poisson?.nomPoisson }} ({{ selectedItem.poisson?.racePoisson?.nomRacePoisson }})</span>
+              </div>
+              <div class="detail-item">
+                <label>Bassin :</label>
+                <span v-if="selectedItem.poisson?.piscineActuelle">
+                  {{ selectedItem.poisson.piscineActuelle.nomPiscine }} (ID: {{ selectedItem.poisson.piscineActuelle.idPiscine }})
+                </span>
+                <span v-else class="no-bassin">Non affecté</span>
               </div>
               <div class="detail-item">
                 <label>ID Poisson :</label>
@@ -445,10 +476,11 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { Chart, registerables } from 'chart.js'
 import nourrissageService from '../services/nourrissageService'
 import poissonService from '../services/poissonService'
+import bassinService from '../services/bassinService'
 import * as XLSX from 'xlsx'
 import { calculService } from '../services/calculService'
 
@@ -461,10 +493,12 @@ export default {
     // État réactif
     const historique = ref([])
     const poissonsList = ref([])
+    const bassinsList = ref([])
     const dateRange = ref('30')
     const dateMin = ref('')
     const dateMax = ref('')
     const selectedPoisson = ref('')
+    const selectedBassin = ref('')
     const statutFilter = ref('')
     const searchQuery = ref('')
     const viewMode = ref('table')
@@ -475,13 +509,19 @@ export default {
     const showModal = ref(false)
     const selectedItem = ref(null)
     const selectedPoissonEvolution = ref(null)
-    const userRole = ref('UTILISATEUR') // À remplacer par la vraie valeur d'authentification
+    const userRole = ref('UTILISATEUR')
     
     // Références pour les graphiques
     const gainChart = ref(null)
     const satisfactionChart = ref(null)
     const nourritureChart = ref(null)
     const poissonEvolutionChart = ref(null)
+    
+    // Graphiques instances
+    let gainChartInstance = null
+    let satisfactionChartInstance = null
+    let nourritureChartInstance = null
+    let poissonEvolutionChartInstance = null
     
     // Statistiques
     const stats = ref({
@@ -521,10 +561,17 @@ export default {
         // Initialiser les dates par défaut
         initDefaultDates()
         
-        // Charger la liste des poissons
+        // Charger la liste des poissons avec leurs bassins
         const poissons = await poissonService.getPoissonsEnVie()
         poissonsList.value = poissons
         stats.value.totalPoissons = poissons.length
+        
+        // Charger la liste des bassins avec leurs poissons
+        const bassins = await bassinService.getAll()
+        bassinsList.value = bassins
+        
+        console.log('Bassins chargés:', bassinsList.value)
+        console.log('Poissons chargés:', poissonsList.value)
         
         // Charger l'historique
         await loadHistorique()
@@ -556,64 +603,140 @@ export default {
       loadHistorique()
     }
 
+    // Méthode utilitaire pour compter les poissons dans un bassin
+    const getNombrePoissons = (bassin) => {
+      if (!bassin.poissons || !Array.isArray(bassin.poissons)) {
+        // Essayer de compter depuis la liste des poissons
+        const poissonsDansBassin = poissonsList.value.filter(p => 
+          p.piscineActuelle && p.piscineActuelle.idPiscine === bassin.idPiscine
+        )
+        return poissonsDansBassin.length
+      }
+      return bassin.poissons.length
+    }
+
     // Charger l'historique
     const loadHistorique = async () => {
       try {
         console.log('Chargement de l\'historique...')
+        console.log('Filtres actuels:', {
+          selectedBassin: selectedBassin.value,
+          selectedPoisson: selectedPoisson.value,
+          dateMin: dateMin.value,
+          dateMax: dateMax.value
+        })
         
         // Mettre à jour les dates de période pour l'affichage
         periodStart.value = new Date(dateMin.value)
         periodEnd.value = new Date(dateMax.value)
         
+        let allData = []
+        
+        // Si un bassin spécifique est sélectionné
+        if (selectedBassin.value) {
+          console.log(`Filtrage par bassin ID: ${selectedBassin.value}`)
+          
+          // Récupérer les poissons de ce bassin
+          const poissonsDuBassin = poissonsList.value.filter(poisson => 
+            poisson.piscineActuelle && poisson.piscineActuelle.idPiscine === parseInt(selectedBassin.value)
+          )
+          
+          console.log(`Poissons trouvés dans le bassin: ${poissonsDuBassin.length}`)
+          
+          // Récupérer l'historique pour chaque poisson du bassin
+          for (const poisson of poissonsDuBassin) {
+            try {
+              const data = await nourrissageService.getHistoriquePoisson(poisson.idPoisson)
+              if (Array.isArray(data)) {
+                // Filtrer par date côté client
+                const filteredData = data.filter(item => {
+                  const itemDate = new Date(item.dateNourrissageFisakafoanana)
+                  
+                  if (dateMin.value && itemDate < new Date(dateMin.value)) {
+                    return false
+                  }
+                  if (dateMax.value) {
+                    const maxDate = new Date(dateMax.value)
+                    maxDate.setHours(23, 59, 59, 999)
+                    if (itemDate > maxDate) {
+                      return false
+                    }
+                  }
+                  return true
+                })
+                
+                allData.push(...filteredData)
+              }
+            } catch (error) {
+              console.warn(`Pas d'historique pour le poisson ${poisson.idPoisson}:`, error)
+            }
+          }
+        } 
         // Si un poisson spécifique est sélectionné
-        if (selectedPoisson.value) {
+        else if (selectedPoisson.value) {
+          console.log(`Chargement historique pour poisson ID: ${selectedPoisson.value}`)
           const data = await nourrissageService.getHistoriquePoisson(selectedPoisson.value)
-          historique.value = Array.isArray(data) ? data : []
-        } else {
-          // Pour l'instant, on récupère tout et on filtre côté client
-          // Dans une vraie app, il faudrait un endpoint avec filtres
-          const allData = []
-          // Simuler des données pour chaque poisson
+          if (Array.isArray(data)) {
+            // Filtrer par date côté client
+            allData = data.filter(item => {
+              const itemDate = new Date(item.dateNourrissageFisakafoanana)
+              
+              if (dateMin.value && itemDate < new Date(dateMin.value)) {
+                return false
+              }
+              if (dateMax.value) {
+                const maxDate = new Date(dateMax.value)
+                maxDate.setHours(23, 59, 59, 999)
+                if (itemDate > maxDate) {
+                  return false
+                }
+              }
+              return true
+            })
+          }
+        } 
+        // Sinon, tout l'historique
+        else {
+          console.log('Chargement de tout l\'historique')
           for (const poisson of poissonsList.value) {
             try {
               const data = await nourrissageService.getHistoriquePoisson(poisson.idPoisson)
               if (Array.isArray(data)) {
-                allData.push(...data)
+                // Filtrer par date côté client
+                const filteredData = data.filter(item => {
+                  const itemDate = new Date(item.dateNourrissageFisakafoanana)
+                  
+                  if (dateMin.value && itemDate < new Date(dateMin.value)) {
+                    return false
+                  }
+                  if (dateMax.value) {
+                    const maxDate = new Date(dateMax.value)
+                    maxDate.setHours(23, 59, 59, 999)
+                    if (itemDate > maxDate) {
+                      return false
+                    }
+                  }
+                  return true
+                })
+                
+                allData.push(...filteredData)
               }
             } catch (error) {
-              console.warn(`Pas d'historique pour le poisson ${poisson.idPoisson}`)
+              console.warn(`Pas d'historique pour le poisson ${poisson.idPoisson}:`, error)
             }
           }
-          historique.value = allData
         }
         
-        // Appliquer le filtre par date côté client
-        if (dateMin.value || dateMax.value) {
-          historique.value = historique.value.filter(item => {
-            const itemDate = new Date(item.dateNourrissageFisakafoanana)
-            
-            if (dateMin.value && itemDate < new Date(dateMin.value)) {
-              return false
-            }
-            if (dateMax.value) {
-              const maxDate = new Date(dateMax.value)
-              maxDate.setHours(23, 59, 59, 999) // Inclure toute la journée
-              if (itemDate > maxDate) {
-                return false
-              }
-            }
-            return true
-          })
-        }
+        historique.value = allData
+        console.log(`Historique chargé: ${historique.value.length} entrées`)
         
         // Calculer les statistiques
         calculateStats()
         
-        // Initialiser les graphiques
+        // Initialiser les graphiques si on est en mode graphique
         if (viewMode.value === 'graph') {
-          setTimeout(() => {
-            initCharts()
-          }, 100)
+          await nextTick()
+          initCharts()
         }
         
       } catch (error) {
@@ -626,6 +749,7 @@ export default {
     const resetFilters = () => {
       dateRange.value = '30'
       selectedPoisson.value = ''
+      selectedBassin.value = ''
       statutFilter.value = ''
       searchQuery.value = ''
       currentPage.value = 1
@@ -674,17 +798,18 @@ export default {
       }
     }
 
-    // Filtrer et trier les données
+    // Filtrer et trier les données (filtrage côté client pour la recherche)
     const filteredHistorique = computed(() => {
       let filtered = [...historique.value]
       
-      // Filtre de recherche
-      if (searchQuery.value) {
-        const query = searchQuery.value.toLowerCase()
+      // Filtre de recherche textuelle
+      if (searchQuery.value.trim()) {
+        const query = searchQuery.value.toLowerCase().trim()
         filtered = filtered.filter(item => {
           const poissonName = item.poisson?.nomPoisson?.toLowerCase() || ''
           const raceName = item.poisson?.racePoisson?.nomRacePoisson?.toLowerCase() || ''
-          return poissonName.includes(query) || raceName.includes(query)
+          const bassinName = item.poisson?.piscineActuelle?.nomPiscine?.toLowerCase() || ''
+          return poissonName.includes(query) || raceName.includes(query) || bassinName.includes(query)
         })
       }
       
@@ -721,6 +846,10 @@ export default {
             aValue = a.poisson?.racePoisson?.nomRacePoisson || ''
             bValue = b.poisson?.racePoisson?.nomRacePoisson || ''
             break
+          case 'bassin':
+            aValue = a.poisson?.piscineActuelle?.nomPiscine || ''
+            bValue = b.poisson?.piscineActuelle?.nomPiscine || ''
+            break
           default:
             aValue = a[sortColumn.value] || 0
             bValue = b[sortColumn.value] || 0
@@ -745,6 +874,11 @@ export default {
     const totalPages = computed(() => {
       return Math.ceil(historique.value.length / itemsPerPage.value)
     })
+
+    // Gestion de la recherche
+    const onSearchInput = () => {
+      currentPage.value = 1
+    }
 
     // Méthodes de pagination
     const nextPage = () => {
@@ -798,28 +932,8 @@ export default {
     const calculateTauxCroissance = (item) => {
       if (!item.ancienPoidsFisakafoanana || item.ancienPoidsFisakafoanana === 0) return '0'
       
-      // Calculer la satisfaction nutritionnelle
-      const satisfaction = calculService.calculerSatisfaction(
-        item.proteinesRecuesFisakafoanana || 0,
-        item.glucidesRecusFisakafoanana || 0
-      )
-      
-      // Le gain devrait correspondre aux règles
-      const gainAttendu = calculService.calculerGainPoids(
-        item.proteinesRecuesFisakafoanana || 0,
-        item.glucidesRecusFisakafoanana || 0
-      )
-      
-      const gainReel = item.gainPoidsFisakafoanana || 0
-      const efficacite = gainAttendu > 0 ? (gainReel / gainAttendu) * 100 : 0
-      
-      return {
-        taux: ((item.nouveauPoidsFisakafoanana - item.ancienPoidsFisakafoanana) / item.ancienPoidsFisakafoanana) * 100,
-        satisfaction: satisfaction.moyenne,
-        efficacite: Math.round(efficacite),
-        gainAttendu,
-        gainReel
-      }
+      const taux = ((item.nouveauPoidsFisakafoanana - item.ancienPoidsFisakafoanana) / item.ancienPoidsFisakafoanana) * 100
+      return Math.round(taux * 100) / 100
     }
 
     // Classes CSS dynamiques
@@ -876,9 +990,8 @@ export default {
         // Charger l'historique spécifique
         const historiquePoisson = await nourrissageService.getHistoriquePoisson(poissonId)
         if (historiquePoisson && historiquePoisson.length > 0) {
-          setTimeout(() => {
-            createEvolutionChart(historiquePoisson)
-          }, 100)
+          await nextTick()
+          createEvolutionChart(historiquePoisson)
         }
       } catch (error) {
         console.error('Erreur chargement évolution:', error)
@@ -887,7 +1000,12 @@ export default {
 
     // Initialiser les graphiques
     const initCharts = () => {
-      if (historique.value.length === 0) return
+      console.log('Initialisation des graphiques...')
+      
+      if (historique.value.length === 0) {
+        console.log('Aucune donnée pour les graphiques')
+        return
+      }
       
       destroyCharts()
       createGainChart()
@@ -896,233 +1014,375 @@ export default {
     }
 
     const destroyCharts = () => {
-      [gainChart.value, satisfactionChart.value, nourritureChart.value, poissonEvolutionChart.value]
-        .forEach(chart => {
-          if (chart && chart.destroy) {
+      console.log('Destruction des graphiques existants...')
+      
+      const charts = [gainChartInstance, satisfactionChartInstance, nourritureChartInstance, poissonEvolutionChartInstance]
+      charts.forEach(chart => {
+        if (chart && typeof chart.destroy === 'function') {
+          try {
             chart.destroy()
+          } catch (e) {
+            console.warn('Erreur lors de la destruction d\'un graphique:', e)
           }
-        })
+        }
+      })
+      
+      gainChartInstance = null
+      satisfactionChartInstance = null
+      nourritureChartInstance = null
+      poissonEvolutionChartInstance = null
     }
 
     const createGainChart = () => {
-      const ctx = document.getElementById('gainChart')?.getContext('2d')
-      if (!ctx) return
-      
-      // Grouper par date
-      const gainsByDate = {}
-      historique.value.forEach(item => {
-        const date = item.dateNourrissageFisakafoanana
-        if (!gainsByDate[date]) {
-          gainsByDate[date] = { total: 0, count: 0 }
-        }
-        gainsByDate[date].total += item.gainPoidsFisakafoanana || 0
-        gainsByDate[date].count++
-      })
-      
-      const dates = Object.keys(gainsByDate).sort()
-      const avgGains = dates.map(date => gainsByDate[date].total / gainsByDate[date].count)
-      
-      gainChart.value = new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: dates.map(date => formatDate(date)),
-          datasets: [{
-            label: 'Gain moyen (g)',
-            data: avgGains,
-            borderColor: '#48bb78',
-            backgroundColor: 'rgba(72, 187, 120, 0.1)',
-            borderWidth: 2,
-            fill: true,
-            tension: 0.4
-          }]
-        },
-        options: {
-          responsive: true,
-          plugins: {
-            legend: { position: 'top' }
-          },
-          scales: {
-            y: { beginAtZero: true, title: { display: true, text: 'Grammes' } },
-            x: { title: { display: true, text: 'Date' } }
-          }
-        }
-      })
-    }
-
-    const createSatisfactionChart = () => {
-      const ctx = document.getElementById('satisfactionChart')?.getContext('2d')
-      if (!ctx) return
-      
-      const categories = {
-        'Excellent (100%)': 0,
-        'Bon (80-99%)': 0,
-        'Moyen (60-79%)': 0,
-        'Faible (<60%)': 0
+      const canvas = document.getElementById('gainChart')
+      if (!canvas) {
+        console.error('Canvas gainChart non trouvé')
+        return
       }
       
-      historique.value.forEach(item => {
-        const taux = item.tauxSatisfactionFisakafoanana || 0
-        if (taux >= 100) categories['Excellent (100%)']++
-        else if (taux >= 80) categories['Bon (80-99%)']++
-        else if (taux >= 60) categories['Moyen (60-79%)']++
-        else categories['Faible (<60%)']++
-      })
+      const ctx = canvas.getContext('2d')
+      if (!ctx) {
+        console.error('Contexte canvas non disponible')
+        return
+      }
       
-      satisfactionChart.value = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-          labels: Object.keys(categories),
-          datasets: [{
-            data: Object.values(categories),
-            backgroundColor: [
-              '#48bb78', // Vert
-              '#4299e1', // Bleu
-              '#ed8936', // Orange
-              '#f56565'  // Rouge
-            ]
-          }]
-        },
-        options: {
-          responsive: true,
-          plugins: {
-            legend: { position: 'right' }
+      try {
+        // Grouper par date
+        const gainsByDate = {}
+        historique.value.forEach(item => {
+          const date = item.dateNourrissageFisakafoanana
+          if (!date) return
+          
+          const dateKey = formatDate(date) // Utiliser la date formatée comme clé
+          if (!gainsByDate[dateKey]) {
+            gainsByDate[dateKey] = { total: 0, count: 0 }
           }
-        }
-      })
-    }
-
-    const createNourritureChart = () => {
-      const ctx = document.getElementById('nourritureChart')?.getContext('2d')
-      if (!ctx) return
-      
-      // Grouper par poisson
-      const nourritureByPoisson = {}
-      historique.value.forEach(item => {
-        const poissonName = item.poisson?.nomPoisson || 'Inconnu'
-        if (!nourritureByPoisson[poissonName]) {
-          nourritureByPoisson[poissonName] = 0
-        }
-        nourritureByPoisson[poissonName] += item.quantiteNourritureFisakafoanana || 0
-      })
-      
-      // Prendre les 10 premiers
-      const sorted = Object.entries(nourritureByPoisson)
-        .sort(([, a], [, b]) => b - a)
-        .slice(0, 10)
-      
-      nourritureChart.value = new Chart(ctx, {
-        type: 'bar',
-        data: {
-          labels: sorted.map(([name]) => name),
-          datasets: [{
-            label: 'Nourriture consommée (g)',
-            data: sorted.map(([, value]) => value),
-            backgroundColor: '#667eea'
-          }]
-        },
-        options: {
-          responsive: true,
-          indexAxis: 'y',
-          plugins: {
-            legend: { display: false }
-          },
-          scales: {
-            x: { beginAtZero: true, title: { display: true, text: 'Grammes' } }
-          }
-        }
-      })
-    }
-
-    const createEvolutionChart = (historiquePoisson) => {
-      const ctx = document.getElementById('poissonEvolutionChart')?.getContext('2d')
-      if (!ctx) return
-      
-      const dates = historiquePoisson.map(item => formatDate(item.dateNourrissageFisakafoanana))
-      const poids = historiquePoisson.map(item => item.nouveauPoidsFisakafoanana)
-      const gains = historiquePoisson.map(item => item.gainPoidsFisakafoanana)
-      
-      poissonEvolutionChart.value = new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: dates,
-          datasets: [
-            {
-              label: 'Poids (g)',
-              data: poids,
-              borderColor: '#667eea',
-              backgroundColor: 'rgba(102, 126, 234, 0.1)',
-              borderWidth: 2,
-              yAxisID: 'y'
-            },
-            {
-              label: 'Gain journalier (g)',
-              data: gains,
+          gainsByDate[dateKey].total += item.gainPoidsFisakafoanana || 0
+          gainsByDate[dateKey].count++
+        })
+        
+        const dates = Object.keys(gainsByDate).sort()
+        const avgGains = dates.map(date => {
+          const data = gainsByDate[date]
+          return data.count > 0 ? data.total / data.count : 0
+        })
+        
+        console.log('Données graphique gain:', { dates, avgGains })
+        
+        gainChartInstance = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: dates,
+            datasets: [{
+              label: 'Gain moyen (g)',
+              data: avgGains,
               borderColor: '#48bb78',
               backgroundColor: 'rgba(72, 187, 120, 0.1)',
               borderWidth: 2,
-              yAxisID: 'y1',
-              type: 'bar'
-            }
-          ]
-        },
-        options: {
-          responsive: true,
-          interaction: {
-            mode: 'index',
-            intersect: false
+              fill: true,
+              tension: 0.4
+            }]
           },
-          scales: {
-            y: {
-              type: 'linear',
-              display: true,
-              position: 'left',
-              title: { display: true, text: 'Poids (g)' }
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { position: 'top' }
             },
-            y1: {
-              type: 'linear',
-              display: true,
-              position: 'right',
-              title: { display: true, text: 'Gain (g)' },
-              grid: { drawOnChartArea: false }
+            scales: {
+              y: { 
+                beginAtZero: true, 
+                title: { display: true, text: 'Grammes' },
+                ticks: {
+                  callback: function(value) {
+                    return value + 'g'
+                  }
+                }
+              },
+              x: { 
+                title: { display: true, text: 'Date' },
+                ticks: {
+                  maxRotation: 45,
+                  minRotation: 45
+                }
+              }
             }
           }
+        })
+        
+        console.log('Graphique gain créé avec succès')
+      } catch (error) {
+        console.error('Erreur création graphique gain:', error)
+      }
+    }
+
+    const createSatisfactionChart = () => {
+      const canvas = document.getElementById('satisfactionChart')
+      if (!canvas) {
+        console.error('Canvas satisfactionChart non trouvé')
+        return
+      }
+      
+      const ctx = canvas.getContext('2d')
+      if (!ctx) {
+        console.error('Contexte canvas non disponible')
+        return
+      }
+      
+      try {
+        const categories = {
+          'Excellent (100%)': 0,
+          'Bon (80-99%)': 0,
+          'Moyen (60-79%)': 0,
+          'Faible (<60%)': 0
         }
-      })
+        
+        historique.value.forEach(item => {
+          const taux = item.tauxSatisfactionFisakafoanana || 0
+          if (taux >= 100) categories['Excellent (100%)']++
+          else if (taux >= 80) categories['Bon (80-99%)']++
+          else if (taux >= 60) categories['Moyen (60-79%)']++
+          else categories['Faible (<60%)']++
+        })
+        
+        console.log('Données graphique satisfaction:', categories)
+        
+        satisfactionChartInstance = new Chart(ctx, {
+          type: 'doughnut',
+          data: {
+            labels: Object.keys(categories),
+            datasets: [{
+              data: Object.values(categories),
+              backgroundColor: [
+                '#48bb78', // Vert
+                '#4299e1', // Bleu
+                '#ed8936', // Orange
+                '#f56565'  // Rouge
+              ],
+              borderWidth: 1
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { 
+                position: 'right',
+                labels: {
+                  padding: 20
+                }
+              },
+              tooltip: {
+                callbacks: {
+                  label: function(context) {
+                    const label = context.label || ''
+                    const value = context.raw || 0
+                    const total = context.dataset.data.reduce((a, b) => a + b, 0)
+                    const percentage = Math.round((value / total) * 100)
+                    return `${label}: ${value} (${percentage}%)`
+                  }
+                }
+              }
+            }
+          }
+        })
+        
+        console.log('Graphique satisfaction créé avec succès')
+      } catch (error) {
+        console.error('Erreur création graphique satisfaction:', error)
+      }
+    }
+
+    const createNourritureChart = () => {
+      const canvas = document.getElementById('nourritureChart')
+      if (!canvas) {
+        console.error('Canvas nourritureChart non trouvé')
+        return
+      }
+      
+      const ctx = canvas.getContext('2d')
+      if (!ctx) {
+        console.error('Contexte canvas non disponible')
+        return
+      }
+      
+      try {
+        // Grouper par poisson
+        const nourritureByPoisson = {}
+        historique.value.forEach(item => {
+          const poissonName = item.poisson?.nomPoisson || 'Inconnu'
+          if (!nourritureByPoisson[poissonName]) {
+            nourritureByPoisson[poissonName] = 0
+          }
+          nourritureByPoisson[poissonName] += item.quantiteNourritureFisakafoanana || 0
+        })
+        
+        // Prendre les 10 premiers ou tous si moins de 10
+        const sorted = Object.entries(nourritureByPoisson)
+          .sort(([, a], [, b]) => b - a)
+          .slice(0, 10)
+        
+        console.log('Données graphique nourriture:', sorted)
+        
+        nourritureChartInstance = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: sorted.map(([name]) => name),
+            datasets: [{
+              label: 'Nourriture consommée (g)',
+              data: sorted.map(([, value]) => value),
+              backgroundColor: '#667eea',
+              borderWidth: 1
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: 'y',
+            plugins: {
+              legend: { display: false }
+            },
+            scales: {
+              x: { 
+                beginAtZero: true, 
+                title: { display: true, text: 'Grammes' },
+                ticks: {
+                  callback: function(value) {
+                    return value + 'g'
+                  }
+                }
+              }
+            }
+          }
+        })
+        
+        console.log('Graphique nourriture créé avec succès')
+      } catch (error) {
+        console.error('Erreur création graphique nourriture:', error)
+      }
+    }
+
+    const createEvolutionChart = (historiquePoisson) => {
+      const canvas = document.getElementById('poissonEvolutionChart')
+      if (!canvas) {
+        console.error('Canvas poissonEvolutionChart non trouvé')
+        return
+      }
+      
+      const ctx = canvas.getContext('2d')
+      if (!ctx) {
+        console.error('Contexte canvas non disponible')
+        return
+      }
+      
+      try {
+        // Trier par date
+        const sortedHistorique = [...historiquePoisson].sort((a, b) => 
+          new Date(a.dateNourrissageFisakafoanana) - new Date(b.dateNourrissageFisakafoanana)
+        )
+        
+        const dates = sortedHistorique.map(item => formatDate(item.dateNourrissageFisakafoanana))
+        const poids = sortedHistorique.map(item => item.nouveauPoidsFisakafoanana)
+        const gains = sortedHistorique.map(item => item.gainPoidsFisakafoanana)
+        
+        console.log('Données graphique évolution:', { dates, poids, gains })
+        
+        poissonEvolutionChartInstance = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: dates,
+            datasets: [
+              {
+                label: 'Poids (g)',
+                data: poids,
+                borderColor: '#667eea',
+                backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                borderWidth: 2,
+                yAxisID: 'y',
+                fill: true
+              },
+              {
+                label: 'Gain journalier (g)',
+                data: gains,
+                borderColor: '#48bb78',
+                backgroundColor: 'rgba(72, 187, 120, 0.1)',
+                borderWidth: 2,
+                yAxisID: 'y1',
+                type: 'bar'
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+              mode: 'index',
+              intersect: false
+            },
+            scales: {
+              y: {
+                type: 'linear',
+                display: true,
+                position: 'left',
+                title: { display: true, text: 'Poids (g)' }
+              },
+              y1: {
+                type: 'linear',
+                display: true,
+                position: 'right',
+                title: { display: true, text: 'Gain (g)' },
+                grid: { drawOnChartArea: false }
+              }
+            }
+          }
+        })
+        
+        console.log('Graphique évolution créé avec succès')
+      } catch (error) {
+        console.error('Erreur création graphique évolution:', error)
+      }
     }
 
     // Basculer entre les vues
-    const toggleView = () => {
+    const toggleView = async () => {
       viewMode.value = viewMode.value === 'table' ? 'graph' : 'table'
       if (viewMode.value === 'graph') {
-        setTimeout(() => {
-          initCharts()
-        }, 100)
+        await nextTick()
+        initCharts()
       }
     }
 
     // Exporter les données
     const exportData = () => {
-      const ws = XLSX.utils.json_to_sheet(historique.value.map(item => ({
-        'Date': formatDate(item.dateNourrissageFisakafoanana),
-        'Heure': formatTime(item.heureNourrissageFisakafoanana),
-        'Poisson': item.poisson?.nomPoisson,
-        'Race': item.poisson?.racePoisson?.nomRacePoisson,
-        'Poids avant (g)': formatPoids(item.ancienPoidsFisakafoanana),
-        'Poids après (g)': formatPoids(item.nouveauPoidsFisakafoanana),
-        'Gain (g)': formatPoids(item.gainPoidsFisakafoanana),
-        'Nourriture (g)': formatPoids(item.quantiteNourritureFisakafoanana),
-        'Protéines (g)': formatPoids(item.proteinesRecuesFisakafoanana),
-        'Glucides (g)': formatPoids(item.glucidesRecusFisakafoanana),
-        'Satisfaction (%)': formatNumber(item.tauxSatisfactionFisakafoanana),
-        'Besoins satisfaits': item.besoinsSatisfaitsFisakafoanana ? 'Oui' : 'Non',
-        'Date création': formatDate(item.dateCreationFisakafoanana)
-      })))
-      
-      const wb = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(wb, ws, 'Historique Nourrissage')
-      
-      const date = new Date().toISOString().split('T')[0]
-      XLSX.writeFile(wb, `historique_nourrissage_${date}.xlsx`)
+      try {
+        const dataToExport = historique.value.map(item => ({
+          'Date': formatDate(item.dateNourrissageFisakafoanana),
+          'Heure': formatTime(item.heureNourrissageFisakafoanana),
+          'Poisson': item.poisson?.nomPoisson || 'N/A',
+          'Race': item.poisson?.racePoisson?.nomRacePoisson || 'Non défini',
+          'Bassin': item.poisson?.piscineActuelle?.nomPiscine || 'Non affecté',
+          'ID Bassin': item.poisson?.piscineActuelle?.idPiscine || '',
+          'Poids avant (g)': formatPoids(item.ancienPoidsFisakafoanana),
+          'Poids après (g)': formatPoids(item.nouveauPoidsFisakafoanana),
+          'Gain (g)': formatPoids(item.gainPoidsFisakafoanana),
+          'Nourriture (g)': formatPoids(item.quantiteNourritureFisakafoanana),
+          'Protéines (g)': formatPoids(item.proteinesRecuesFisakafoanana),
+          'Glucides (g)': formatPoids(item.glucidesRecusFisakafoanana),
+          'Satisfaction (%)': formatNumber(item.tauxSatisfactionFisakafoanana),
+          'Besoins satisfaits': item.besoinsSatisfaitsFisakafoanana ? 'Oui' : 'Non',
+          'Date création': formatDate(item.dateCreationFisakafoanana)
+        }))
+        
+        const ws = XLSX.utils.json_to_sheet(dataToExport)
+        const wb = XLSX.utils.book_new()
+        XLSX.utils.book_append_sheet(wb, ws, 'Historique Nourrissage')
+        
+        const date = new Date().toISOString().split('T')[0]
+        XLSX.writeFile(wb, `historique_nourrissage_${date}.xlsx`)
+      } catch (error) {
+        console.error('Erreur export Excel:', error)
+        alert('Erreur lors de l\'export Excel')
+      }
     }
 
     // Imprimer les détails
@@ -1133,7 +1393,6 @@ export default {
     // Confirmer la suppression
     const confirmDelete = (item) => {
       if (confirm(`Supprimer l'entrée du ${formatDate(item.dateNourrissageFisakafoanana)} pour ${item.poisson?.nomPoisson} ?`)) {
-        // Ici, appeler l'API de suppression
         console.log('Suppression de:', item.idFisakafoanana)
         alert('Fonctionnalité de suppression à implémenter avec l\'API')
       }
@@ -1141,14 +1400,14 @@ export default {
 
     // Watchers
     watch(viewMode, (newVal) => {
-      if (newVal === 'graph' && historique.value.length > 0) {
-        setTimeout(() => {
+      if (newVal === 'graph') {
+        nextTick(() => {
           initCharts()
-        }, 100)
+        })
       }
     })
 
-    watch([dateRange, selectedPoisson, statutFilter], () => {
+    watch([dateRange, selectedPoisson, selectedBassin, statutFilter], () => {
       currentPage.value = 1
       loadHistorique()
     })
@@ -1162,6 +1421,7 @@ export default {
       // Données
       historique,
       poissonsList,
+      bassinsList,
       filteredHistorique,
       stats,
       selectedItem,
@@ -1172,6 +1432,7 @@ export default {
       dateMin,
       dateMax,
       selectedPoisson,
+      selectedBassin,
       statutFilter,
       searchQuery,
       viewMode,
@@ -1185,11 +1446,8 @@ export default {
       periodEnd,
       totalPages,
       
-      // Références
-      gainChart,
-      satisfactionChart,
-      nourritureChart,
-      poissonEvolutionChart,
+      // Méthodes utilitaires
+      getNombrePoissons,
       
       // Méthodes
       loadHistorique,
@@ -1213,6 +1471,7 @@ export default {
       printDetails,
       confirmDelete,
       onDateRangeChange,
+      onSearchInput,
       resetFilters
     }
   }
@@ -1220,703 +1479,8 @@ export default {
 </script>
 
 <style scoped>
-.historique {
-  padding: 20px;
-  background: #f7fafc;
-  min-height: 100vh;
-}
-
-.header {
-  background: white;
-  padding: 25px;
-  border-radius: 12px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-  margin-bottom: 25px;
-}
-
-.header h1 {
-  margin: 0 0 10px 0;
-  color: #2d3748;
-  font-size: 28px;
-}
-
-.subtitle {
-  color: #718096;
-  margin-bottom: 25px;
-  font-size: 16px;
-}
-
-.filters {
-  display: flex;
-  gap: 15px;
-  flex-wrap: wrap;
-  align-items: flex-start;
-}
-
-.filter-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.filter-group label {
-  font-weight: 600;
-  color: #4a5568;
-  font-size: 14px;
-}
-
-.filter-group select, .date-input {
-  padding: 10px 15px;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  background: white;
-  min-width: 180px;
-  cursor: pointer;
-  transition: border-color 0.2s;
-}
-
-.filter-group select:hover, .date-input:hover {
-  border-color: #cbd5e0;
-}
-
-.filter-group select:focus, .date-input:focus {
-  outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-}
-
-.date-range-filters {
-  display: flex;
-  gap: 15px;
-  align-items: flex-end;
-}
-
-.date-input {
-  cursor: text;
-}
-
-.btn-refresh, .btn-export, .btn-reset {
-  padding: 10px 20px;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 600;
-  transition: all 0.2s;
-  align-self: flex-end;
-  margin-top: 8px;
-}
-
-.btn-refresh {
-  background: #4299e1;
-  color: white;
-}
-
-.btn-refresh:hover {
-  background: #3182ce;
-}
-
-.btn-export {
-  background: #48bb78;
-  color: white;
-}
-
-.btn-export:hover {
-  background: #38a169;
-}
-
-.btn-reset {
-  background: #a0aec0;
-  color: white;
-}
-
-.btn-reset:hover {
-  background: #718096;
-}
-
-/* Statistiques */
-.stats-summary {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 20px;
-  margin-bottom: 25px;
-}
-
-.stat-card {
-  background: white;
-  padding: 20px;
-  border-radius: 12px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-  display: flex;
-  align-items: center;
-  gap: 15px;
-}
-
-.stat-icon {
-  font-size: 32px;
-}
-
-.stat-content h3 {
-  margin: 0 0 5px 0;
-  font-size: 16px;
-  color: #4a5568;
-}
-
-.stat-content p {
-  margin: 0;
-  font-size: 24px;
-  font-weight: bold;
-  color: #2d3748;
-}
-
-/* Tableau */
-.table-container {
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-  padding: 25px;
-}
-
-.table-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-}
-
-.table-header h2 {
-  margin: 0;
-  color: #2d3748;
-}
-
-.table-actions {
-  display: flex;
-  gap: 15px;
-  align-items: center;
-}
-
-.search-input {
-  padding: 10px 15px;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  width: 250px;
-  transition: border-color 0.2s;
-}
-
-.search-input:focus {
-  outline: none;
-  border-color: #667eea;
-}
-
-.btn-toggle-view {
-  padding: 10px 20px;
-  background: #ed8936;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 600;
-  transition: background 0.2s;
-}
-
-.btn-toggle-view:hover {
-  background: #dd6b20;
-}
-
-/* Table */
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.data-table th {
-  background: #f7fafc;
-  padding: 15px;
-  text-align: left;
-  font-weight: 600;
-  color: #4a5568;
-  border-bottom: 2px solid #e2e8f0;
-  cursor: pointer;
-  user-select: none;
-  transition: background 0.2s;
-}
-
-.data-table th:hover {
-  background: #edf2f7;
-}
-
-.data-table td {
-  padding: 15px;
-  border-bottom: 1px solid #e2e8f0;
-  vertical-align: middle;
-}
-
-.data-table tbody tr:hover {
-  background: #f7fafc;
-}
-
-/* Cellules spéciales */
-.date-cell {
-  display: flex;
-  flex-direction: column;
-}
-
-.date-cell .date {
-  font-weight: 600;
-}
-
-.date-cell .time {
-  font-size: 12px;
-  color: #718096;
-}
-
-.poisson-cell {
-  display: flex;
-  flex-direction: column;
-}
-
-.poisson-cell .poisson-name {
-  font-weight: 600;
-}
-
-.poisson-cell .poisson-id {
-  font-size: 12px;
-  color: #718096;
-}
-
-.weight-cell {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-
-.weight-diff {
-  font-size: 12px;
-  padding: 2px 8px;
-  border-radius: 4px;
-  display: inline-block;
-}
-
-.weight-diff.positive {
-  background: #c6f6d5;
-  color: #22543d;
-}
-
-.gain-badge {
-  padding: 5px 10px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 600;
-  display: inline-block;
-}
-
-.gain-high { background: #c6f6d5; color: #22543d; }
-.gain-medium { background: #fed7d7; color: #742a2a; }
-.gain-low { background: #feebc8; color: #744210; }
-.gain-very-low { background: #e2e8f0; color: #2d3748; }
-
-.satisfaction-cell {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.satisfaction-bar {
-  flex: 1;
-  height: 8px;
-  background: #e2e8f0;
-  border-radius: 4px;
-  overflow: hidden;
-}
-
-.satisfaction-fill {
-  height: 100%;
-  transition: width 0.3s;
-}
-
-.satisfaction-high { background: #48bb78; }
-.satisfaction-medium { background: #ed8936; }
-.satisfaction-low { background: #ecc94b; }
-.satisfaction-very-low { background: #f56565; }
-
-.satisfaction-text {
-  min-width: 50px;
-  text-align: right;
-  font-weight: 600;
-}
-
-.status-badge {
-  padding: 6px 12px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 600;
-  display: inline-block;
-}
-
-.status-satisfied { background: #c6f6d5; color: #22543d; }
-.status-partial { background: #feebc8; color: #744210; }
-.status-unsatisfied { background: #fed7d7; color: #742a2a; }
-
-.action-buttons {
-  display: flex;
-  gap: 8px;
-}
-
-.action-buttons button {
-  padding: 8px 12px;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 16px;
-  transition: all 0.2s;
-}
-
-.btn-details { background: #4299e1; color: white; }
-.btn-chart { background: #9f7aea; color: white; }
-.btn-delete { background: #f56565; color: white; }
-
-.action-buttons button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-}
-
-/* Pagination */
-.pagination {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 20px;
-  margin-top: 30px;
-  padding: 20px;
-}
-
-.pagination button {
-  padding: 10px 20px;
-  border: 1px solid #e2e8f0;
-  background: white;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.pagination button:hover:not(:disabled) {
-  background: #4299e1;
-  color: white;
-  border-color: #4299e1;
-}
-
-.pagination button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.page-info {
-  font-weight: 600;
-  color: #4a5568;
-}
-
-.no-data {
-  text-align: center;
-  padding: 40px;
-  color: #718096;
-  font-size: 18px;
-}
-
-/* Vue graphique */
-.graph-view {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-  gap: 30px;
-  margin-top: 20px;
-}
-
-.graph-container {
-  background: white;
-  padding: 25px;
-  border-radius: 12px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-}
-
-.graph-container h3 {
-  margin: 0 0 20px 0;
-  color: #2d3748;
-  text-align: center;
-}
-
-.graph-container canvas {
-  max-height: 300px;
-}
-
-/* Évolution poisson */
-.poisson-evolution {
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 2px 20px rgba(0,0,0,0.1);
-  margin-top: 30px;
-  padding: 25px;
-}
-
-.evolution-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-}
-
-.evolution-header h3 {
-  margin: 0;
-  color: #2d3748;
-}
-
-.btn-close {
-  background: none;
-  border: none;
-  font-size: 24px;
-  cursor: pointer;
-  color: #718096;
-}
-
-.btn-close:hover {
-  color: #f56565;
-}
-
-.evolution-chart {
-  height: 400px;
-}
-
-/* Modal */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0,0,0,0.5);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-  padding: 20px;
-}
-
-.modal-content {
-  background: white;
-  border-radius: 12px;
-  max-width: 800px;
-  width: 100%;
-  max-height: 90vh;
-  overflow-y: auto;
-  animation: modalSlide 0.3s ease;
-}
-
-@keyframes modalSlide {
-  from {
-    opacity: 0;
-    transform: translateY(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 25px;
-  border-bottom: 1px solid #e2e8f0;
-}
-
-.modal-header h2 {
-  margin: 0;
-  color: #2d3748;
-}
-
-.modal-close {
-  background: none;
-  border: none;
-  font-size: 28px;
-  cursor: pointer;
-  color: #718096;
-  line-height: 1;
-}
-
-.modal-close:hover {
-  color: #f56565;
-}
-
-.modal-body {
-  padding: 25px;
-}
-
-.detail-section {
-  margin-bottom: 30px;
-}
-
-.detail-section h3 {
-  margin: 0 0 20px 0;
-  color: #2d3748;
-  font-size: 18px;
-  padding-bottom: 10px;
-  border-bottom: 2px solid #e2e8f0;
-}
-
-.detail-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 20px;
-}
-
-.detail-item {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.detail-item label {
-  font-weight: 600;
-  color: #4a5568;
-  font-size: 14px;
-}
-
-.detail-item span {
-  color: #2d3748;
-  font-size: 16px;
-}
-
-.gain-positive {
-  color: #48bb78;
-  font-weight: bold;
-}
-
-.satisfaction-detail {
-  background: #f7fafc;
-  padding: 25px;
-  border-radius: 8px;
-}
-
-.satisfaction-bar-large {
-  height: 20px;
-  background: #e2e8f0;
-  border-radius: 10px;
-  overflow: hidden;
-  position: relative;
-  margin-bottom: 20px;
-}
-
-.satisfaction-fill-large {
-  height: 100%;
-  transition: width 1s ease;
-}
-
-.satisfaction-text-large {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-weight: bold;
-  color: white;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.2);
-}
-
-.satisfaction-info p {
-  margin: 10px 0;
-  color: #4a5568;
-}
-
-.plat-info {
-  background: white;
-  padding: 20px;
-  border-radius: 8px;
-  border: 1px solid #e2e8f0;
-}
-
-.plat-info p {
-  margin: 10px 0;
-}
-
-.modal-footer {
-  padding: 20px 25px;
-  border-top: 1px solid #e2e8f0;
-  display: flex;
-  justify-content: flex-end;
-  gap: 15px;
-}
-
-.modal-footer button {
-  padding: 12px 24px;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 600;
-  transition: all 0.2s;
-}
-
-.btn-secondary {
-  background: #e2e8f0;
-  color: #4a5568;
-}
-
-.btn-secondary:hover {
-  background: #cbd5e0;
-}
-
-.btn-primary {
-  background: #4299e1;
-  color: white;
-}
-
-.btn-primary:hover {
-  background: #3182ce;
-}
-
-/* Responsive */
-@media (max-width: 1024px) {
-  .filters {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  
-  .filter-group select, .date-input {
-    width: 100%;
-  }
-  
-  .date-range-filters {
-    flex-direction: column;
-    width: 100%;
-  }
-  
-  .table-actions {
-    flex-direction: column;
-    width: 100%;
-  }
-  
-  .search-input {
-    width: 100%;
-  }
-  
-  .graph-view {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 768px) {
-  .data-table {
-    display: block;
-    overflow-x: auto;
-  }
-  
-  .stats-summary {
-    grid-template-columns: 1fr;
-  }
-  
-  .detail-grid {
-    grid-template-columns: 1fr;
-  }
-  
-  .modal-content {
-    margin: 10px;
-    max-height: 80vh;
-  }
-}
+@import '../assets/styles/historique.css';
 </style>
+
+
+

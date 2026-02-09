@@ -236,13 +236,15 @@
             🚰 Vider le bassin
           </button>
            <button 
-            @click="nourrirPoissonsBassin(bassin)" 
-            class="btn-action btn-nourrir"
-            :disabled="!getNombrePoissonsAffames(bassin) || !bassin.estActivePiscine"
-            :title="!bassin.estActivePiscine ? 'Bassin inactif' : getNombrePoissonsAffames(bassin) ? `${getNombrePoissonsAffames(bassin)} poisson(s) affamé(s)` : 'Aucun poisson affamé'"
-          >
-            🍽️ Nourrir
-          </button>
+              @click="nourrirPoissonsBassin(bassin)" 
+              class="btn-action btn-nourrir"
+              :title="getBoutonNourrirTitle(bassin)"
+            >
+              🍽️ Nourrir 
+              <span v-if="getNombrePoissonsAffames(bassin) > 0" class="badge-nourrir">
+                {{ getNombrePoissonsAffames(bassin) }}
+              </span>
+            </button>
           <router-link 
             :to="{ name: 'DetailBassin', params: { id: bassin.idPiscine } }" 
             class="btn-action btn-primary"
@@ -361,7 +363,6 @@ export default {
     const bassinToEmpty = ref(null)
     const emptyReason = ref('Transfert')
     const customReason = ref('')
-    // const router = useRouter()
     
     // Filtres
     const filters = ref({
@@ -372,6 +373,49 @@ export default {
     
     // Tri
     const sortBy = ref('nom')
+    
+    // Fonction de debug pour analyser les poissons
+    const analyserPoissons = (bassin) => {
+      if (!bassin.poissons || !Array.isArray(bassin.poissons)) {
+        console.log(`❌ ${bassin.nomPiscine}: Pas de tableau poissons`)
+        return 0
+      }
+      
+      console.log(`🔍 Analyse détaillée des ${bassin.poissons.length} poissons de ${bassin.nomPiscine}:`)
+      
+      const poissonsDetails = bassin.poissons.map((poisson, index) => {
+        // Conversion robuste en boolean
+        const estRassasie = Boolean(poisson.estRassasiePoisson)
+        const estVendu = Boolean(poisson.estVenduPoisson)
+        const estEnVie = Boolean(poisson.estEnViePoisson)
+        const estAffame = !estRassasie && !estVendu && estEnVie
+        
+        return {
+          id: poisson.idPoisson,
+          nom: poisson.nomPoisson,
+          estRassasiePoisson: poisson.estRassasiePoisson,
+          estVenduPoisson: poisson.estVenduPoisson,
+          estEnViePoisson: poisson.estEnViePoisson,
+          estAffame: estAffame,
+          typeEstRassasie: typeof poisson.estRassasiePoisson,
+          typeEstVendu: typeof poisson.estVenduPoisson,
+          typeEstEnVie: typeof poisson.estEnViePoisson
+        }
+      })
+      
+      console.table(poissonsDetails)
+      
+      const affames = bassin.poissons.filter(poisson => {
+        const estRassasie = Boolean(poisson.estRassasiePoisson)
+        const estVendu = Boolean(poisson.estVenduPoisson)
+        const estEnVie = Boolean(poisson.estEnViePoisson)
+        
+        return !estRassasie && !estVendu && estEnVie
+      })
+      
+      console.log(`✅ ${affames.length} poisson(s) vraiment affamé(s) dans ${bassin.nomPiscine}`)
+      return affames.length
+    }
     
     // Méthodes utilitaires pour calculer les statistiques
     const getNombrePoissonsActuels = (bassin) => {
@@ -394,82 +438,167 @@ export default {
       return parseFloat(taux.toFixed(1))
     }
     
-
     const getNombrePoissonsAffames = (bassin) => {
-  if (!bassin || !bassin.poissons || !Array.isArray(bassin.poissons)) return 0
-  return bassin.poissons.filter(poisson => 
-    !poisson.estRassasiePoisson && 
-    !poisson.estVenduPoisson && 
-    poisson.estEnViePoisson
-  ).length
-}
-
-// Ajouter dans la section des méthodes de gestion
-const nourrirPoissonsBassin = (bassin) => {
-  const nbAffames = getNombrePoissonsAffames(bassin)
-  if (nbAffames === 0) {
-    alert('Aucun poisson affamé dans ce bassin !')
-    return
-  }
-  
-  // Naviguer vers la page de nourrissage avec l'ID du bassin en paramètre
-  router.push({
-    name: 'NourrissageNew',
-    query: { 
-      bassinId: bassin.idPiscine,
-      bassinNom: bassin.nomPiscine
+      if (!bassin || !bassin.poissons || !Array.isArray(bassin.poissons)) {
+        return 0
+      }
+      
+      // Version simple avec conversion robuste
+      const affames = bassin.poissons.filter(poisson => {
+        // Conversion en boolean
+        const estRassasie = poisson.estRassasiePoisson === true || poisson.estRassasiePoisson === 'true'
+        const estVendu = poisson.estVenduPoisson === true || poisson.estVenduPoisson === 'true'
+        const estEnVie = poisson.estEnViePoisson === true || poisson.estEnViePoisson === 'true'
+        
+        return !estRassasie && !estVendu && estEnVie
+      })
+      
+      return affames.length
     }
-  })
-}
-
-    // Charger les données
-  const loadData = async () => {
-  isLoading.value = true
-  try {
-    const bassinsData = await bassinService.getAllWithStats()
-    bassins.value = Array.isArray(bassinsData) ? bassinsData : []
     
-    // Charger les poissons pour chaque bassin
-    for (let bassin of bassins.value) {
-      try {
-        const poissonsData = await bassinService.getPoissons(bassin.idPiscine)
-        bassin.poissons = Array.isArray(poissonsData) ? poissonsData : []
-      } catch (error) {
-        console.error(`Erreur chargement poissons pour bassin ${bassin.idPiscine}:`, error)
-        bassin.poissons = []
+    const verifierEtatBoutonNourrir = (bassin) => {
+      if (!bassin) return { desactive: true, raison: "Bassin invalide" }
+      
+      const nbAffames = getNombrePoissonsAffames(bassin)
+      const estActif = bassin.estActivePiscine === true || bassin.estActivePiscine === 'true'
+      
+      console.log(`🔄 État bouton nourrir pour ${bassin.nomPiscine}:`, {
+        nbAffames,
+        estActif,
+        bassinEstActiveRaw: bassin.estActivePiscine,
+        typeEstActive: typeof bassin.estActivePiscine,
+        boutonDesactive: !nbAffames || !estActif,
+        raison: !nbAffames ? "Aucun poisson affamé" : !estActif ? "Bassin inactif" : "OK"
+      })
+      
+      return {
+        desactive: !nbAffames || !estActif,
+        raison: !nbAffames ? "Aucun poisson affamé" : !estActif ? "Bassin inactif" : "OK"
       }
     }
     
-  } catch (error) {
-    console.error('Erreur chargement bassins:', error)
-    // Fallback
-    try {
-      const bassinsData = await bassinService.getAll()
-      bassins.value = Array.isArray(bassinsData) ? bassinsData : []
+    const getBoutonNourrirTitle = (bassin) => {
+      const nbAffames = getNombrePoissonsAffames(bassin)
+      const estActif = bassin.estActivePiscine === true || bassin.estActivePiscine === 'true'
       
-      // Charger les poissons pour chaque bassin
-      for (let bassin of bassins.value) {
-        try {
-          const poissonsData = await bassinService.getPoissons(bassin.idPiscine)
-          bassin.poissons = Array.isArray(poissonsData) ? poissonsData : []
-        } catch (error) {
-          console.error(`Erreur chargement poissons pour bassin ${bassin.idPiscine}:`, error)
-          bassin.poissons = []
+      if (!estActif) return 'Bassin inactif - Impossible de nourrir'
+      if (nbAffames === 0) return 'Aucun poisson affamé'
+      return `${nbAffames} poisson(s) affamé(s) - Cliquez pour nourrir`
+    }
+    
+    const nourrirPoissonsBassin = (bassin) => {
+      const nbAffames = getNombrePoissonsAffames(bassin)
+      const estActif = bassin.estActivePiscine === true || bassin.estActivePiscine === 'true'
+      
+      // Debug
+      console.log(`🍽️ Tentative de nourrissage pour ${bassin.nomPiscine}:`, {
+        nbAffames,
+        estActif,
+        poissonsTotaux: bassin.poissons?.length || 0
+      })
+      
+      // Version permissive avec avertissement
+      if (nbAffames === 0) {
+        if (!confirm(`Aucun poisson affamé détecté (sur ${bassin.poissons?.length || 0} poissons).\nVoulez-vous quand même procéder au nourrissage ?`)) {
+          return
         }
       }
       
-    } catch (fallbackError) {
-      console.error('Erreur chargement fallback:', fallbackError)
-      bassins.value = []
+      if (!estActif) {
+        if (!confirm('Ce bassin est marqué comme inactif. Voulez-vous quand même nourrir les poissons ?')) {
+          return
+        }
+      }
+      
+      // Naviguer vers la page de nourrissage avec l'ID du bassin en paramètre
+      router.push({
+        name: 'NourrissageNew',
+        query: { 
+          bassinId: bassin.idPiscine,
+          bassinNom: bassin.nomPiscine,
+          poissonsAffames: nbAffames
+        }
+      })
     }
-  } finally {
-    isLoading.value = false
-  }
-}
+    
+    // Charger les données
+    const loadData = async () => {
+      console.log('🔄 Chargement simplifié des bassins...')
+      isLoading.value = true
+      try {
+        // 1. Charger les bassins sans stats
+        const bassinsData = await bassinService.getAll()
+        console.log('📊 Données brutes des bassins:', bassinsData)
+        
+        if (Array.isArray(bassinsData)) {
+          bassins.value = bassinsData
+          
+          // 2. Afficher un log détaillé pour déboguer
+          console.log('🔍 Analyse des bassins chargés:')
+          bassins.value.forEach((bassin, index) => {
+            console.log(`Bassin ${index + 1} - ${bassin.nomPiscine}:`, {
+              id: bassin.idPiscine,
+              estActivePiscine: bassin.estActivePiscine,
+              estActivePiscineType: typeof bassin.estActivePiscine,
+              capacite: bassin.capaciteMaxPiscine,
+              nombrePoissonsActuels: bassin.nombrePoissonsActuels,
+              tauxOccupation: bassin.tauxOccupation,
+              correctionNecessaire: bassin.estActivePiscine === null || bassin.estActivePiscine === undefined
+            })
+            
+            // Forcer l'activation si c'est null ou undefined
+            if (bassin.estActivePiscine === null || bassin.estActivePiscine === undefined) {
+              console.log(`⚠️ Correction: ${bassin.nomPiscine} estActivePiscine=${bassin.estActivePiscine} → true`)
+              bassin.estActivePiscine = true
+            }
+          })
+          
+          // 3. Charger les poissons pour chaque bassin
+          for (let bassin of bassins.value) {
+            try {
+              console.log(`🐟 Chargement des poissons pour ${bassin.nomPiscine}...`)
+              const poissonsData = await bassinService.getPoissons(bassin.idPiscine)
+              bassin.poissons = Array.isArray(poissonsData) ? poissonsData : []
+              
+              console.log(`✅ ${bassin.poissons.length} poisson(s) chargé(s) pour ${bassin.nomPiscine}`)
+              
+              // Vérifier l'état après chargement
+              verifierEtatBoutonNourrir(bassin)
+              
+              // Analyse détaillée (optionnel - activez si besoin)
+              if (bassin.poissons.length > 0) {
+                analyserPoissons(bassin)
+              }
+            } catch (error) {
+              console.error(`❌ Erreur chargement poissons pour ${bassin.nomPiscine}:`, error)
+              bassin.poissons = []
+            }
+          }
+        } else {
+          console.error('❌ Données non valides:', bassinsData)
+          bassins.value = []
+        }
+      } catch (error) {
+        console.error('❌ Erreur totale lors du chargement:', error)
+        bassins.value = []
+      } finally {
+        console.log('✅ Chargement terminé')
+        console.log('📊 Résumé final:')
+        bassins.value.forEach((b, i) => {
+          const etat = verifierEtatBoutonNourrir(b)
+          console.log(`${i+1}. ${b.nomPiscine}: actif=${b.estActivePiscine}, poissons=${b.poissons?.length || 0}, affamés=${getNombrePoissonsAffames(b)}, bouton: ${etat.raison}`)
+        })
+        isLoading.value = false
+      }
+    }
+    
     // Computed properties
     const filteredBassins = computed(() => {
-      return bassins.value
+      const filtered = bassins.value
         .filter(bassin => {
+          // Correction du statut pour le filtrage
+          const estActif = bassin.estActivePiscine === true || bassin.estActivePiscine === 'true'
+          
           // Filtre recherche
           if (filters.value.search) {
             const searchLower = filters.value.search.toLowerCase()
@@ -481,8 +610,8 @@ const nourrirPoissonsBassin = (bassin) => {
           
           // Filtre statut
           if (filters.value.status) {
-            if (filters.value.status === 'actif' && !bassin.estActivePiscine) return false
-            if (filters.value.status === 'inactif' && bassin.estActivePiscine) return false
+            if (filters.value.status === 'actif' && !estActif) return false
+            if (filters.value.status === 'inactif' && estActif) return false
           }
           
           // Filtre occupation
@@ -524,10 +653,17 @@ const nourrirPoissonsBassin = (bassin) => {
               return a.nomPiscine?.localeCompare(b.nomPiscine || '') || 0
           }
         })
+      
+      console.log(`🔍 Filtrage: ${filtered.length} bassins sur ${bassins.value.length}`)
+      return filtered
     })
     
     const totalBassins = computed(() => bassins.value.length)
-    const bassinsActifs = computed(() => bassins.value.filter(b => b.estActivePiscine).length)
+    const bassinsActifs = computed(() => {
+      return bassins.value.filter(b => {
+        return b.estActivePiscine === true || b.estActivePiscine === 'true'
+      }).length
+    })
     const totalPoissons = computed(() => bassins.value.reduce((sum, b) => sum + getNombrePoissonsActuels(b), 0))
     const tauxOccupationMoyen = computed(() => {
       if (bassins.value.length === 0) return 0
@@ -562,6 +698,7 @@ const nourrirPoissonsBassin = (bassin) => {
     
     // Méthodes de gestion
     const refreshData = () => {
+      console.log('🔄 Actualisation manuelle des données')
       loadData()
     }
     
@@ -571,9 +708,11 @@ const nourrirPoissonsBassin = (bassin) => {
         status: '',
         occupation: ''
       }
+      console.log('🗑️ Filtres réinitialisés')
     }
     
     const confirmDelete = (bassin) => {
+      console.log('🗑️ Confirmation suppression bassin:', bassin.nomPiscine)
       bassinToDelete.value = bassin
       showDeleteModal.value = true
     }
@@ -581,12 +720,15 @@ const nourrirPoissonsBassin = (bassin) => {
     const deleteBassin = async () => {
       if (!bassinToDelete.value) return
       
+      console.log(`🗑️ Suppression du bassin ${bassinToDelete.value.idPiscine}...`)
+      
       try {
         await bassinService.delete(bassinToDelete.value.idPiscine)
+        console.log('✅ Bassin supprimé avec succès')
         await loadData()
         showDeleteModal.value = false
       } catch (error) {
-        console.error('Erreur suppression bassin:', error)
+        console.error('❌ Erreur suppression bassin:', error)
         alert(error.response?.data?.message || 'Erreur lors de la suppression du bassin')
       }
     }
@@ -598,6 +740,7 @@ const nourrirPoissonsBassin = (bassin) => {
         return
       }
       
+      console.log('🚰 Vidage du bassin:', bassin.nomPiscine)
       bassinToEmpty.value = bassin
       emptyReason.value = 'Transfert'
       customReason.value = ''
@@ -607,29 +750,56 @@ const nourrirPoissonsBassin = (bassin) => {
     const confirmEmpty = async () => {
       if (!bassinToEmpty.value) return
       
+      const raison = emptyReason.value === 'Autre' ? customReason.value : emptyReason.value
+      console.log(`🚰 Vidage du bassin ${bassinToEmpty.value.idPiscine} - raison: ${raison}`)
+      
       try {
-        const raison = emptyReason.value === 'Autre' ? customReason.value : emptyReason.value
         await bassinService.viderBassin(bassinToEmpty.value.idPiscine, raison)
+        console.log('✅ Bassin vidé avec succès')
         await loadData()
         showEmptyModal.value = false
       } catch (error) {
-        console.error('Erreur vidage bassin:', error)
+        console.error('❌ Erreur vidage bassin:', error)
         alert(error.response?.data?.message || 'Erreur lors du vidage du bassin')
       }
     }
     
     const toggleBassinStatus = async (bassin) => {
+      console.log(`🔄 Basculement du statut pour bassin ${bassin.idPiscine} (actuel: ${bassin.estActivePiscine})`)
+      
       try {
-        await bassinService.toggleStatus(bassin.idPiscine)
+        // Appel API pour basculer le statut
+        const updatedBassin = await bassinService.toggleStatus(bassin.idPiscine)
+        console.log('✅ Réponse API toggle:', updatedBassin)
+        
+        // Mettre à jour localement le bassin spécifique
+        const index = bassins.value.findIndex(b => b.idPiscine === bassin.idPiscine)
+        if (index !== -1) {
+          // Fusionner les données mises à jour
+          bassins.value[index] = { 
+            ...bassins.value[index], 
+            ...updatedBassin,
+            estActivePiscine: updatedBassin.estActivePiscine 
+          }
+          console.log(`🔄 Bassin ${bassin.idPiscine} mis à jour localement:`, bassins.value[index])
+        }
+        
+        // Recharger les données pour s'assurer de la synchronisation
         await loadData()
+        
+        // Message de confirmation
+        const nouvelEtat = updatedBassin.estActivePiscine ? 'actif' : 'inactif'
+        console.log(`✅ Statut du bassin ${bassin.nomPiscine} changé à: ${nouvelEtat}`)
+        
       } catch (error) {
-        console.error('Erreur changement statut:', error)
+        console.error('❌ Erreur changement statut:', error)
         alert(error.response?.data?.message || 'Erreur lors du changement de statut')
       }
     }
     
     // Initialisation
     onMounted(() => {
+      console.log('🚀 Composant BassinsList monté')
       loadData()
     })
     
@@ -660,7 +830,8 @@ const nourrirPoissonsBassin = (bassin) => {
       getCapaciteRestante,
       getTauxOccupation,
       getOccupationClass,
-      getNombrePoissonsAffames, 
+      getNombrePoissonsAffames,
+      getBoutonNourrirTitle,
       nourrirPoissonsBassin,
       
       // Méthodes
@@ -678,7 +849,6 @@ const nourrirPoissonsBassin = (bassin) => {
   }
 }
 </script>
-
 
 <style scoped>
 @import '../assets/styles/bassin-list';

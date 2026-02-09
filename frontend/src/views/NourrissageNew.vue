@@ -191,7 +191,11 @@
                        :max="maxQuantite" @input="updateCalculs">
                 <button @click="incrementQuantity" class="btn-quantity" :disabled="quantitePlat >= maxQuantite">+</button>
                 <span class="quantity-unit">kg</span>
+                <div class="quantity-info">
+                  <small>Valeur actuelle: {{ quantitePlat }} kg ({{ quantitePlat * 1000 }} g)</small>
+                </div>
               </div>
+              
               <div class="quantity-slider">
                 <input type="range" v-model="quantitePlat" :min="0.1" :max="maxQuantite" 
                        step="0.1" @input="updateCalculs" class="slider">
@@ -533,7 +537,7 @@ export default {
     const selectedAlimentId = ref(null)
     const selectedPlatId = ref(null)
     const showCustomAliment = ref(false)
-    const quantitePlat = ref(0.5) // 500g par défaut
+    const quantitePlat = ref(0.1) // 500g par défaut
     const distributionMode = ref('equitable')
    
     
