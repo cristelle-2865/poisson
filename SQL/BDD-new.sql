@@ -217,3 +217,11 @@ ALTER TABLE piscine ADD COLUMN date_modification_piscine TIMESTAMP;
 
 
 
+
+
+ALTER TABLE aliment 
+ADD COLUMN lipides_par_kg_aliment DECIMAL(8,2) DEFAULT 5.00 NOT NULL;
+
+ALTER TABLE aliment 
+ADD COLUMN vitamines_par_kg_aliment DECIMAL(8,2) DEFAULT 0.50 NOT NULL;
+
