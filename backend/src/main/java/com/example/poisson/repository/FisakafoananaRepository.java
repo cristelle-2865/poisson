@@ -16,6 +16,15 @@ public interface FisakafoananaRepository extends JpaRepository<Fisakafoanana, Lo
     
     List<Fisakafoanana> findByDateNourrissageFisakafoananaBetween(LocalDate start, LocalDate end);
     
+    // AJOUT: Recherche par plat
+    List<Fisakafoanana> findByPlatIdPlat(Long idPlat);
+    
+    // AJOUT: Recherche avec plat non nul
+    List<Fisakafoanana> findByPlatIsNotNull();
+    
+    // AJOUT: Recherche avec plat nul (nourrissages sans plat)
+    List<Fisakafoanana> findByPlatIsNull();
+    
     @Query("SELECT SUM(f.gainPoidsFisakafoanana) FROM Fisakafoanana f WHERE f.poisson.idPoisson = :idPoisson")
     Double sumGainPoidsByPoisson(@Param("idPoisson") Long idPoisson);
 }

@@ -1,6 +1,7 @@
 package com.example.poisson.service;
 
 import com.example.poisson.dto.PiscineDTO;
+import com.example.poisson.dto.PiscineWithStatsDTO;
 import com.example.poisson.model.AffectationPiscine;
 import com.example.poisson.model.Piscine;
 import com.example.poisson.model.Poisson;
@@ -55,6 +56,7 @@ public class PiscineService {
         return piscineRepository.save(piscine);
     }
     
+    // Dans la méthode updatePiscine() de PiscineService.java
     public Piscine updatePiscine(Long id, Piscine piscineDetails) {
         Piscine piscine = getPiscineById(id);
         
@@ -72,6 +74,9 @@ public class PiscineService {
         if (piscineDetails.getPhPiscine() != null) {
             piscine.setPhPiscine(piscineDetails.getPhPiscine());
         }
+        
+        // Mettre à jour la date de modification
+        piscine.setDateModificationPiscine(LocalDateTime.now());
         
         return piscineRepository.save(piscine);
     }
@@ -168,7 +173,7 @@ public class PiscineService {
     }
     
     public List<AffectationPiscine> getHistoriquePiscine(Long idPiscine) {
-        return affectationPiscineRepository.findByPiscineIdPiscine(idPiscine);
+        return affectationPiscineRepository.findHistoriqueWithPoissonDetails(idPiscine);
     }
     
     public List<AffectationPiscine> getHistoriquePoisson(Long idPoisson) {
@@ -248,5 +253,19 @@ public class PiscineService {
         
         return piscine;
     }
+
+    // PiscineService.java - Ajoutez cette méthode
+    public List<PiscineWithStatsDTO> getAllPiscinesWithStats() {
+        List<Piscine> piscines = getAllPiscines();
+        return piscines.stream()
+            .map(p -> {
+                // Charger les relations pour chaque piscine
+                Piscine piscineComplet = getPiscineByIdWithRelations(p.getIdPiscine());
+                return new PiscineWithStatsDTO(piscineComplet);
+            })
+            .collect(Collectors.toList());
+    }
 }
+
+
 

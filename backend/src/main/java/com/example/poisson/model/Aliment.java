@@ -2,12 +2,15 @@ package com.example.poisson.model;
 
 import jakarta.persistence.*;
 import lombok.Data;
-import java.math.BigDecimal; // IMPORT
+import com.fasterxml.jackson.annotation.JsonIgnore; // AJOUTEZ CET IMPORT
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties; // AJOUTEZ CET IMPORT
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "aliment")
 @Data
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"}) // AJOUTEZ CETTE LIGNE
 public class Aliment {
     
     @Id
@@ -41,5 +44,10 @@ public class Aliment {
     
     @Column(name = "date_modification_aliment")
     private LocalDateTime dateModificationAliment = LocalDateTime.now();
+    
+    // AJOUTEZ CETTE RELATION SI ELLE N'EXISTE PAS
+    @OneToMany(mappedBy = "aliment", fetch = FetchType.LAZY)
+    @JsonIgnore // IMPORTANT: Éviter la récursion
+    private java.util.List<CompositionPlat> compositions = new java.util.ArrayList<>();
 }
 

@@ -27,6 +27,22 @@ public interface AffectationPiscineRepository extends JpaRepository<AffectationP
     Long countCurrentPoissonsInPiscine(@Param("idPiscine") Long idPiscine);
     
     List<AffectationPiscine> findByPoissonIdPoissonOrderByDateEntreeAffectationDesc(Long idPoisson);
+    
+    // AJOUTEZ CETTE MÉTHODE CRITIQUE
+    @Query("SELECT a FROM AffectationPiscine a " +
+           "LEFT JOIN FETCH a.poisson p " +
+           "LEFT JOIN FETCH p.racePoisson " +
+           "WHERE a.piscine.idPiscine = :idPiscine " +
+           "ORDER BY a.dateEntreeAffectation DESC")
+    List<AffectationPiscine> findHistoriqueWithPoissonDetails(@Param("idPiscine") Long idPiscine);
+    
+    // Optionnel: Pour charger aussi la piscine
+    @Query("SELECT a FROM AffectationPiscine a " +
+           "LEFT JOIN FETCH a.poisson p " +
+           "LEFT JOIN FETCH p.racePoisson " +
+           "LEFT JOIN FETCH a.piscine " +
+           "WHERE a.piscine.idPiscine = :idPiscine " +
+           "ORDER BY a.dateEntreeAffectation DESC")
+    List<AffectationPiscine> findFullHistoriqueByPiscine(@Param("idPiscine") Long idPiscine);
 }
-
 

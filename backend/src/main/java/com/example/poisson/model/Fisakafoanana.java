@@ -2,6 +2,7 @@ package com.example.poisson.model;
 
 import jakarta.persistence.*;
 import lombok.Data;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -10,6 +11,7 @@ import java.time.LocalTime;
 @Entity
 @Table(name = "fisakafoanana")
 @Data
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Fisakafoanana {
     
     @Id
@@ -19,7 +21,14 @@ public class Fisakafoanana {
     
     @ManyToOne
     @JoinColumn(name = "id_poisson", nullable = false)
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"}) // MODIFIÉ: Retirer piscineActuelle et racePoisson
     private Poisson poisson;
+    
+    // AJOUT: Relation avec Plat
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_plat")
+    @JsonIgnoreProperties({"compositions", "hibernateLazyInitializer", "handler"})
+    private Plat plat; // Plat utilisé pour ce nourrissage
     
     @Column(name = "date_nourrissage_fisakafoanana", nullable = false)
     private LocalDate dateNourrissageFisakafoanana;

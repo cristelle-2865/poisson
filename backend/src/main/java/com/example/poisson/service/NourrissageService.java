@@ -20,7 +20,7 @@ public class NourrissageService {
     
     private final PoissonRepository poissonRepository;
     private final FisakafoananaRepository fisakafoananaRepository;
-    private final PlatRepository platRepository; // AJOUTER CETTE LIGNE
+    private final PlatRepository platRepository;
     
     // Constantes selon le cahier des charges
     private static final BigDecimal BESOIN_PROTEINES = new BigDecimal("2.0");
@@ -32,10 +32,6 @@ public class NourrissageService {
         
         // Convertir kg en grammes pour les calculs
         BigDecimal platTotalGrammes = quantitePlatTotal.multiply(new BigDecimal("1000"));
-        
-        // Calcul des nutriments totaux dans le plat
-        BigDecimal proteinesTotales = proteinesParKg.multiply(quantitePlatTotal);
-        BigDecimal glucidesTotales = glucidesParKg.multiply(quantitePlatTotal);
         
         // Récupérer les poissons affamés
         List<Poisson> poissonsAffames = poissonRepository
@@ -49,19 +45,20 @@ public class NourrissageService {
             );
         }
         
-        // Calcul du besoin total (règle de trois)
-        // Pour 5g de plat : 2g protéines + 4g glucides
-        BigDecimal besoinPlatParPoisson = new BigDecimal("5.0");
-        BigDecimal besoinTotal = besoinPlatParPoisson.multiply(new BigDecimal(poissonsAffames.size()));
+        // CALCUL DYNAMIQUE de la quantité par poisson
+        BigDecimal quantiteParPoisson = platTotalGrammes.divide(
+            new BigDecimal(poissonsAffames.size()), 2, RoundingMode.HALF_UP);
         
-        // Vérifier si assez de nourriture
-        if (platTotalGrammes.compareTo(besoinTotal) < 0) {
-            // Répartir proportionnellement
+        // Minimum 5g par poisson pour être significatif
+        BigDecimal minimumParPoisson = new BigDecimal("5.0");
+        
+        if (quantiteParPoisson.compareTo(minimumParPoisson) < 0) {
+            // Nourriture insuffisante pour tous
             return repartirNourritureLimitee(poissonsAffames, platTotalGrammes, proteinesParKg, glucidesParKg);
         }
         
         // Assez de nourriture pour tous
-        return nourrirTousPoissons(poissonsAffames, besoinPlatParPoisson, proteinesParKg, glucidesParKg);
+        return nourrirTousPoissons(poissonsAffames, quantiteParPoisson, proteinesParKg, glucidesParKg);
     }
     
     private Map<String, Object> nourrirTousPoissons(List<Poisson> poissons, 
@@ -77,7 +74,8 @@ public class NourrissageService {
                 poisson, 
                 quantiteParPoisson, 
                 proteinesParKg, 
-                glucidesParKg
+                glucidesParKg,
+                null // Nourrissage sans plat spécifique
             );
             
             historiques.add(historique);
@@ -98,126 +96,209 @@ public class NourrissageService {
         );
     }
     
-   private Fisakafoanana nourrirUnPoisson(Poisson poisson, BigDecimal quantitePlat,
-                                      BigDecimal proteinesParKg, BigDecimal glucidesParKg) {
+    // MODIFIÉ: Ajouter le paramètre Plat dans nourrirUnPoisson
+    private Fisakafoanana nourrirUnPoisson(Poisson poisson, BigDecimal quantitePlat,
+                                         BigDecimal proteinesParKg, BigDecimal glucidesParKg,
+                                         Plat plat) { // AJOUT: paramètre plat
     
-    // IMPORTANT: quantitePlat est en GRAMMES ici (5g par poisson)
-    // proteinesParKg et glucidesParKg sont en g/kg
-    
-    // Convertir quantitePlat en kg pour les calculs
-    BigDecimal quantitePlatKg = quantitePlat.divide(new BigDecimal("1000"), 4, RoundingMode.HALF_UP);
-    
-    // Calcul des nutriments reçus (en grammes)
-    // Formule: (quantité en kg) × (nutriments en g/kg) = nutriments en g
-    BigDecimal proteinesRecues = quantitePlatKg.multiply(proteinesParKg);
-    BigDecimal glucidesRecus = quantitePlatKg.multiply(glucidesParKg);
-    
-    // Calcul du gain de poids selon les règles
-    BigDecimal gainPoids = calculerGainPoids(proteinesRecues, glucidesRecus);
-    
-    // Limiter par capacité d'augmentation et poids max
-    BigDecimal gainMaximumPossible = poisson.getPoidsMaximalPoisson()
-        .subtract(poisson.getPoidsActuelPoisson())
-        .min(poisson.getCapaciteAugmentationPoisson());
-    
-    gainPoids = gainPoids.min(gainMaximumPossible);
-    
-    // S'assurer que le gain n'est pas négatif
-    if (gainPoids.compareTo(BigDecimal.ZERO) < 0) {
-        gainPoids = BigDecimal.ZERO;
+        // IMPORTANT: quantitePlat est en GRAMMES ici (5g par poisson)
+        // proteinesParKg et glucidesParKg sont en g/kg
+        
+        // Convertir quantitePlat en kg pour les calculs
+        BigDecimal quantitePlatKg = quantitePlat.divide(new BigDecimal("1000"), 4, RoundingMode.HALF_UP);
+        
+        // Calcul des nutriments reçus (en grammes)
+        // Formule: (quantité en kg) × (nutriments en g/kg) = nutriments en g
+        BigDecimal proteinesRecues = quantitePlatKg.multiply(proteinesParKg);
+        BigDecimal glucidesRecus = quantitePlatKg.multiply(glucidesParKg);
+        
+        // Calcul du gain de poids selon les règles
+        BigDecimal gainPoids = calculerGainPoids(proteinesRecues, glucidesRecus);
+        
+        // Limiter par capacité d'augmentation et poids max
+        BigDecimal gainMaximumPossible = poisson.getPoidsMaximalPoisson()
+            .subtract(poisson.getPoidsActuelPoisson())
+            .min(poisson.getCapaciteAugmentationPoisson());
+        
+        gainPoids = gainPoids.min(gainMaximumPossible);
+        
+        // S'assurer que le gain n'est pas négatif
+        if (gainPoids.compareTo(BigDecimal.ZERO) < 0) {
+            gainPoids = BigDecimal.ZERO;
+        }
+        
+        BigDecimal nouveauPoids = poisson.getPoidsActuelPoisson().add(gainPoids);
+        
+        // Calcul du taux de satisfaction
+        // Besoins: 2g protéines + 4g glucides = 100%
+        BigDecimal tauxProteines = proteinesRecues
+            .divide(BESOIN_PROTEINES, 4, RoundingMode.HALF_UP)
+            .min(BigDecimal.ONE); // Limiter à 100%
+        
+        BigDecimal tauxGlucides = glucidesRecus
+            .divide(BESOIN_GLUCIDES, 4, RoundingMode.HALF_UP)
+            .min(BigDecimal.ONE); // Limiter à 100%
+        
+        BigDecimal tauxSatisfaction = tauxProteines.add(tauxGlucides)
+            .divide(new BigDecimal("2"), 4, RoundingMode.HALF_UP)
+            .multiply(new BigDecimal("100"));
+        
+        // Créer l'historique
+        Fisakafoanana historique = new Fisakafoanana();
+        historique.setPoisson(poisson);
+        historique.setPlat(plat); // AJOUT: Lier le plat à l'historique
+        historique.setDateNourrissageFisakafoanana(LocalDate.now());
+        historique.setAncienPoidsFisakafoanana(poisson.getPoidsActuelPoisson());
+        historique.setNouveauPoidsFisakafoanana(nouveauPoids);
+        historique.setQuantiteNourritureFisakafoanana(quantitePlat); // En grammes
+        historique.setProteinesRecuesFisakafoanana(proteinesRecues); // En grammes
+        historique.setGlucidesRecusFisakafoanana(glucidesRecus); // En grammes
+        historique.setGainPoidsFisakafoanana(gainPoids); // En grammes
+        historique.setTauxSatisfactionFisakafoanana(tauxSatisfaction);
+        historique.setBesoinsSatisfaitsFisakafoanana(
+            tauxProteines.compareTo(BigDecimal.ONE) >= 0 && 
+            tauxGlucides.compareTo(BigDecimal.ONE) >= 0
+        );
+        
+        // Mettre à jour le poisson
+        poisson.setPoidsActuelPoisson(nouveauPoids);
+        poisson.setDateModificationPoisson(LocalDateTime.now());
+        
+        return historique;
     }
     
-    BigDecimal nouveauPoids = poisson.getPoidsActuelPoisson().add(gainPoids);
-    
-    // Calcul du taux de satisfaction
-    // Besoins: 2g protéines + 4g glucides = 100%
-    BigDecimal tauxProteines = proteinesRecues
-        .divide(BESOIN_PROTEINES, 4, RoundingMode.HALF_UP)
-        .min(BigDecimal.ONE); // Limiter à 100%
-    
-    BigDecimal tauxGlucides = glucidesRecus
-        .divide(BESOIN_GLUCIDES, 4, RoundingMode.HALF_UP)
-        .min(BigDecimal.ONE); // Limiter à 100%
-    
-    BigDecimal tauxSatisfaction = tauxProteines.add(tauxGlucides)
-        .divide(new BigDecimal("2"), 4, RoundingMode.HALF_UP)
-        .multiply(new BigDecimal("100"));
-    
-    // Créer l'historique
-    Fisakafoanana historique = new Fisakafoanana();
-    historique.setPoisson(poisson);
-    historique.setDateNourrissageFisakafoanana(LocalDate.now());
-    historique.setAncienPoidsFisakafoanana(poisson.getPoidsActuelPoisson());
-    historique.setNouveauPoidsFisakafoanana(nouveauPoids);
-    historique.setQuantiteNourritureFisakafoanana(quantitePlat); // En grammes
-    historique.setProteinesRecuesFisakafoanana(proteinesRecues); // En grammes
-    historique.setGlucidesRecusFisakafoanana(glucidesRecus); // En grammes
-    historique.setGainPoidsFisakafoanana(gainPoids); // En grammes
-    historique.setTauxSatisfactionFisakafoanana(tauxSatisfaction);
-    historique.setBesoinsSatisfaitsFisakafoanana(
-        tauxProteines.compareTo(BigDecimal.ONE) >= 0 && 
-        tauxGlucides.compareTo(BigDecimal.ONE) >= 0
-    );
-    
-    // Mettre à jour le poisson
-    poisson.setPoidsActuelPoisson(nouveauPoids);
-    poisson.setDateModificationPoisson(LocalDateTime.now());
-    
-    return historique;
-}
-
-    
-  private BigDecimal calculerGainPoids(BigDecimal proteines, BigDecimal glucides) {
-    // Les paramètres sont en GRAMMES (venant de nourrirUnPoisson)
-    
-    // Cas 1: 2g protéines + 4g glucides = 10g gain
-    if (proteines.compareTo(BESOIN_PROTEINES) == 0 && 
-        glucides.compareTo(BESOIN_GLUCIDES) == 0) {
-        return new BigDecimal("10.0");
+    private BigDecimal calculerGainPoids(BigDecimal proteines, BigDecimal glucides) {
+        log.debug("🎯 DEBUT calculerGainPoids - Protéines: {} g, Glucides: {} g", proteines, glucides);
+        
+        // Les paramètres sont en GRAMMES (venant de nourrirUnPoisson)
+        
+        // Cas 1: 2g protéines + 4g glucides = 10g gain
+        if (proteines.compareTo(BESOIN_PROTEINES) == 0 && 
+            glucides.compareTo(BESOIN_GLUCIDES) == 0) {
+            log.debug("✅ Cas 1: 2gP + 4gG = 10g gain");
+            return new BigDecimal("10.0");
+        }
+        
+        // Cas 2: 2g protéines + 0g glucides = 5g gain
+        if (proteines.compareTo(BESOIN_PROTEINES) == 0 && 
+            glucides.compareTo(BigDecimal.ZERO) == 0) {
+            log.debug("✅ Cas 2: 2gP + 0gG = 5g gain");
+            return new BigDecimal("5.0");
+        }
+        
+        // Cas 3: 0g protéines + 4g glucides = 5g gain
+        if (proteines.compareTo(BigDecimal.ZERO) == 0 && 
+            glucides.compareTo(BESOIN_GLUCIDES) == 0) {
+            log.debug("✅ Cas 3: 0gP + 4gG = 5g gain");
+            return new BigDecimal("5.0");
+        }
+        
+        // Cas 4: 4g protéines + 4g glucides = 15g gain
+        if (proteines.compareTo(new BigDecimal("4.0")) == 0 && 
+            glucides.compareTo(BESOIN_GLUCIDES) == 0) {
+            log.debug("✅ Cas 4: 4gP + 4gG = 15g gain");
+            return new BigDecimal("15.0");
+        }
+        
+        // Cas 5: 4g protéines + 8g glucides = 20g gain (maximum)
+        if (proteines.compareTo(new BigDecimal("4.0")) == 0 && 
+            glucides.compareTo(new BigDecimal("8.0")) == 0) {
+            log.debug("✅ Cas 5: 4gP + 8gG = 20g gain (MAXIMUM)");
+            return new BigDecimal("20.0");
+        }
+        
+        log.debug("📊 Aucun cas standard, interpolation linéaire");
+        
+        // Cas général: interpolation linéaire
+        BigDecimal tauxProteines = proteines.divide(new BigDecimal("4.0"), 4, RoundingMode.HALF_UP);
+        BigDecimal tauxGlucides = glucides.divide(new BigDecimal("8.0"), 4, RoundingMode.HALF_UP);
+        
+        log.debug("📈 Taux protéines brutes: {} (max 4.0g)", tauxProteines);
+        log.debug("📈 Taux glucides brutes: {} (max 8.0g)", tauxGlucides);
+        
+        // Limiter à 100% (1.0)
+        BigDecimal tauxProteinesLimite = tauxProteines.min(BigDecimal.ONE);
+        BigDecimal tauxGlucidesLimite = tauxGlucides.min(BigDecimal.ONE);
+        
+        log.debug("📉 Taux protéines limité: {}", tauxProteinesLimite);
+        log.debug("📉 Taux glucides limité: {}", tauxGlucidesLimite);
+        
+        BigDecimal tauxMoyen = tauxProteinesLimite.add(tauxGlucidesLimite)
+            .divide(new BigDecimal("2"), 4, RoundingMode.HALF_UP);
+        
+        // S'assurer que le taux moyen ne dépasse pas 1.0
+        tauxMoyen = tauxMoyen.min(BigDecimal.ONE);
+        
+        log.debug("🧮 Taux moyen calculé: {}", tauxMoyen);
+        
+        BigDecimal gain = tauxMoyen.multiply(new BigDecimal("20.0"));
+        
+        log.debug("⚖️ Gain calculé: {} g", gain);
+        log.debug("🎯 FIN calculerGainPoids");
+        
+        return gain;
     }
     
-    // Cas 2: 2g protéines + 0g glucides = 5g gain
-    if (proteines.compareTo(BESOIN_PROTEINES) == 0 && 
-        glucides.compareTo(BigDecimal.ZERO) == 0) {
-        return new BigDecimal("5.0");
+    // Version corrigée sans idBassin (pour compatibilité)
+    private Map<String, Object> repartirNourritureLimitee(List<Poisson> poissons, 
+                                                        BigDecimal platTotal,
+                                                        BigDecimal proteinesParKg,
+                                                        BigDecimal glucidesParKg) {
+        
+        // Minimum 5g par poisson pour un nourrissage significatif
+        BigDecimal minimumParPoisson = new BigDecimal("5.0");
+        int nombrePoissonsNourris = platTotal.divide(minimumParPoisson, 0, RoundingMode.FLOOR).intValue();
+        
+        if (nombrePoissonsNourris == 0) {
+            return Map.of(
+                "message", "Nourriture insuffisante (moins de 5g par poisson)",
+                "poissonsNourris", 0,
+                "nourritureRestante", platTotal,
+                "date", LocalDate.now()
+            );
+        }
+        
+        // Calculer la quantité réelle par poisson nourri
+        BigDecimal quantiteParPoisson = platTotal.divide(
+            new BigDecimal(nombrePoissonsNourris), 2, RoundingMode.HALF_UP);
+        
+        List<Fisakafoanana> historiques = new ArrayList<>();
+        
+        for (int i = 0; i < Math.min(nombrePoissonsNourris, poissons.size()); i++) {
+            Poisson poisson = poissons.get(i);
+            
+            Fisakafoanana historique = nourrirUnPoisson(
+                poisson, 
+                quantiteParPoisson, 
+                proteinesParKg, 
+                glucidesParKg,
+                null
+            );
+            
+            historiques.add(historique);
+            poisson.setEstRassasiePoisson(true);
+            poissonRepository.save(poisson);
+        }
+        
+        fisakafoananaRepository.saveAll(historiques);
+        
+        BigDecimal nourritureUtilisee = quantiteParPoisson.multiply(new BigDecimal(nombrePoissonsNourris));
+        
+        return Map.of(
+            "message", "Nourriture limitée, " + nombrePoissonsNourris + " poissons nourris",
+            "poissonsNourris", nombrePoissonsNourris,
+            "poissonsAffamesRestants", poissons.size() - nombrePoissonsNourris,
+            "nourritureUtilisee", nourritureUtilisee,
+            "date", LocalDate.now()
+        );
     }
     
-    // Cas 3: 0g protéines + 4g glucides = 5g gain
-    if (proteines.compareTo(BigDecimal.ZERO) == 0 && 
-        glucides.compareTo(BESOIN_GLUCIDES) == 0) {
-        return new BigDecimal("5.0");
-    }
-    
-    // Cas 4: 4g protéines + 4g glucides = 15g gain
-    if (proteines.compareTo(new BigDecimal("4.0")) == 0 && 
-        glucides.compareTo(BESOIN_GLUCIDES) == 0) {
-        return new BigDecimal("15.0");
-    }
-    
-    // Cas 5: 4g protéines + 8g glucides = 20g gain (maximum)
-    if (proteines.compareTo(new BigDecimal("4.0")) == 0 && 
-        glucides.compareTo(new BigDecimal("8.0")) == 0) {
-        return new BigDecimal("20.0");
-    }
-    
-    // Cas général: interpolation linéaire
-    BigDecimal tauxProteines = proteines.divide(new BigDecimal("4.0"), 4, RoundingMode.HALF_UP);
-    BigDecimal tauxGlucides = glucides.divide(new BigDecimal("8.0"), 4, RoundingMode.HALF_UP);
-    
-    // Gain de base (minimum) = 0g
-    // Gain maximum = 20g
-    // On calcule la moyenne des taux, limitée à 1.0
-    BigDecimal tauxMoyen = tauxProteines.add(tauxGlucides)
-        .divide(new BigDecimal("2"), 4, RoundingMode.HALF_UP)
-        .min(BigDecimal.ONE); // Limiter à 100%
-    
-    return tauxMoyen.multiply(new BigDecimal("20.0"));
-}
-
+    // Version avec idBassin (pour nourrirPoissonsDansBassin)
     private Map<String, Object> repartirNourritureLimitee(List<Poisson> poissons, 
                                                          BigDecimal platTotal,
                                                          BigDecimal proteinesParKg,
-                                                         BigDecimal glucidesParKg) {
+                                                         BigDecimal glucidesParKg,
+                                                         Long idBassin) {
         
         BigDecimal besoinParPoisson = new BigDecimal("5.0");
         int nombrePoissonsNourris = platTotal.divide(besoinParPoisson, 0, RoundingMode.FLOOR).intValue();
@@ -231,7 +312,8 @@ public class NourrissageService {
                 poisson, 
                 besoinParPoisson, 
                 proteinesParKg, 
-                glucidesParKg
+                glucidesParKg,
+                null // Nourrissage sans plat spécifique
             );
             
             historiques.add(historique);
@@ -245,12 +327,17 @@ public class NourrissageService {
             besoinParPoisson.multiply(new BigDecimal(nombrePoissonsNourris))
         );
         
+        String message = idBassin != null 
+            ? "Nourriture limitée, certains poissons du bassin nourris" 
+            : "Nourriture limitée, certains poissons nourris";
+        
         return Map.of(
-            "message", "Nourriture limitée, certains poissons nourris",
+            "message", message,
             "poissonsNourris", nombrePoissonsNourris,
             "poissonsAffamesRestants", poissons.size() - nombrePoissonsNourris,
             "nourritureRestante", nourritureRestante,
-            "date", LocalDate.now()
+            "date", LocalDate.now(),
+            "bassinId", idBassin
         );
     }
     
@@ -263,297 +350,255 @@ public class NourrissageService {
         
         return nourrirPoissons(quantitePlat, proteinesParKg, glucidesParKg);
     }
-
-   
-  @Transactional
-public Map<String, Object> nourrirAvecPlat(Long idPlat) {
-    log.info("🍽️ DEBUT nourrirAvecPlat - ID Plat: {}", idPlat);
     
-    try {
-        // 1. Récupérer le plat
-        Plat plat = platRepository.findById(idPlat)
-            .orElseThrow(() -> {
-                log.error("❌ Plat non trouvé avec l'ID: {}", idPlat);
-                return new RuntimeException("Plat non trouvé avec l'ID: " + idPlat);
-            });
+    // UNE SEULE MÉTHODE nourrirAvecPlat
+    @Transactional
+    public Map<String, Object> nourrirAvecPlat(Long idPlat) {
+        log.info("🍽️ DEBUT nourrirAvecPlat - ID Plat: {}", idPlat);
         
-        log.info("✅ Plat trouvé: {} (ID: {})", plat.getNomPlat(), plat.getIdPlat());
-        log.info("   Poids total: {} kg", plat.getPoidsTotalPlat());
-        log.info("   Utilisé: {}", plat.getEstUtilisePlat());
-        log.info("   Protéines par kg: {} g/kg", plat.getProteinesParKgPlat());
-        log.info("   Glucides par kg: {} g/kg", plat.getGlucidesParKgPlat());
-        
-        // 2. Vérifications
-        if (Boolean.TRUE.equals(plat.getEstUtilisePlat())) {
-            log.error("❌ Plat déjà utilisé");
-            throw new RuntimeException("Ce plat a déjà été utilisé");
+        try {
+            // 1. Récupérer le plat
+            Plat plat = platRepository.findById(idPlat)
+                .orElseThrow(() -> {
+                    log.error("❌ Plat non trouvé avec l'ID: {}", idPlat);
+                    return new RuntimeException("Plat non trouvé avec l'ID: " + idPlat);
+                });
+            
+            log.info("✅ Plat trouvé: {} (ID: {})", plat.getNomPlat(), plat.getIdPlat());
+            log.info("   Poids total: {} kg", plat.getPoidsTotalPlat());
+            log.info("   Utilisé: {}", plat.getEstUtilisePlat());
+            log.info("   Protéines par kg: {} g/kg", plat.getProteinesParKgPlat());
+            log.info("   Glucides par kg: {} g/kg", plat.getGlucidesParKgPlat());
+            
+            // 2. Vérifications
+            if (Boolean.TRUE.equals(plat.getEstUtilisePlat())) {
+                log.error("❌ Plat déjà utilisé");
+                throw new RuntimeException("Ce plat a déjà été utilisé");
+            }
+            
+            if (plat.getPoidsTotalPlat() == null || 
+                plat.getPoidsTotalPlat().compareTo(BigDecimal.ZERO) <= 0) {
+                log.error("❌ Plat vide: poids = {}", plat.getPoidsTotalPlat());
+                throw new RuntimeException("Le plat est vide");
+            }
+            
+            if (plat.getProteinesParKgPlat() == null || plat.getGlucidesParKgPlat() == null) {
+                log.error("❌ Valeurs nutritionnelles manquantes");
+                throw new RuntimeException("Valeurs nutritionnelles manquantes dans le plat");
+            }
+            
+            // 3. Récupérer les poissons affamés
+            List<Poisson> poissonsAffames = poissonRepository
+                .findByEstRassasiePoissonFalseAndEstVenduPoissonFalseAndEstEnViePoissonTrue();
+            
+            log.info("🐟 Poissons affamés trouvés: {}", poissonsAffames.size());
+            
+            if (poissonsAffames.isEmpty()) {
+                log.warn("⚠️ Aucun poisson affamé");
+                return Map.of(
+                    "message", "Aucun poisson affamé à nourrir",
+                    "platUtilise", plat.getNomPlat(),
+                    "idPlat", plat.getIdPlat(),
+                    "quantitePlat", plat.getPoidsTotalPlat(),
+                    "poissonsNourris", 0,
+                    "nourritureUtilisee", BigDecimal.ZERO
+                );
+            }
+            
+            // 4. Convertir le poids du plat (kg → grammes pour les calculs)
+            BigDecimal poidsPlatGrammes = plat.getPoidsTotalPlat()
+                .multiply(new BigDecimal("1000"));
+            
+            log.info("📊 Conversion: {} kg = {} g", 
+                plat.getPoidsTotalPlat(), poidsPlatGrammes);
+            
+            // 5. Calculer la quantité par poisson (5g minimum par poisson)
+            BigDecimal besoinParPoisson = new BigDecimal("5.0"); // 5g par poisson
+            BigDecimal besoinTotal = besoinParPoisson.multiply(
+                new BigDecimal(poissonsAffames.size())
+            );
+            
+            log.info("🧮 Besoins: {} poissons × {} g = {} g total",
+                poissonsAffames.size(), besoinParPoisson, besoinTotal);
+            
+            // 6. Vérifier si assez de nourriture
+            BigDecimal quantiteParPoisson;
+            int poissonsANourrir;
+            
+            if (poidsPlatGrammes.compareTo(besoinTotal) >= 0) {
+                // Assez pour tous les poissons
+                quantiteParPoisson = besoinParPoisson;
+                poissonsANourrir = poissonsAffames.size();
+                log.info("✅ Assez de nourriture pour tous les poissons ({} g/poisson)", 
+                    quantiteParPoisson);
+            } else {
+                // Nourriture limitée, on nourrit proportionnellement
+                poissonsANourrir = poidsPlatGrammes
+                    .divide(besoinParPoisson, 0, RoundingMode.FLOOR)
+                    .intValue();
+                quantiteParPoisson = besoinParPoisson;
+                log.info("⚠️ Nourriture limitée: {} poissons nourris sur {}",
+                    poissonsANourrir, poissonsAffames.size());
+            }
+            
+            // 7. Nourrir les poissons
+            List<Fisakafoanana> historiques = new ArrayList<>();
+            BigDecimal gainTotal = BigDecimal.ZERO;
+            
+            for (int i = 0; i < Math.min(poissonsANourrir, poissonsAffames.size()); i++) {
+                Poisson poisson = poissonsAffames.get(i);
+                
+                log.info("🍴 Nourrir poisson {}: {} (ID: {})", 
+                    i + 1, poisson.getNomPoisson(), poisson.getIdPoisson());
+                
+                // MODIFIÉ: Passer le plat comme paramètre
+                Fisakafoanana historique = nourrirUnPoisson(
+                    poisson, 
+                    quantiteParPoisson, // en grammes
+                    plat.getProteinesParKgPlat(), 
+                    plat.getGlucidesParKgPlat(),
+                    plat // AJOUT: Plat utilisé
+                );
+                
+                historiques.add(historique);
+                gainTotal = gainTotal.add(historique.getGainPoidsFisakafoanana());
+                
+                // Marquer comme rassasié
+                poisson.setEstRassasiePoisson(true);
+                poissonRepository.save(poisson);
+                
+                log.info("   Gain: {} g", historique.getGainPoidsFisakafoanana());
+            }
+            
+            // 8. Sauvegarder l'historique
+            fisakafoananaRepository.saveAll(historiques);
+            
+            // 9. Marquer le plat comme utilisé
+            plat.setEstUtilisePlat(true);
+            platRepository.save(plat);
+            
+            // 10. Calculer la nourriture utilisée
+            BigDecimal nourritureUtilisee = quantiteParPoisson
+                .multiply(new BigDecimal(poissonsANourrir))
+                .divide(new BigDecimal("1000"), 4, RoundingMode.HALF_UP); // g → kg
+            
+            log.info("📈 Résumé:");
+            log.info("   Poissons nourris: {}", poissonsANourrir);
+            log.info("   Nourriture utilisée: {} kg ({} g)", 
+                nourritureUtilisee, nourritureUtilisee.multiply(new BigDecimal("1000")));
+            log.info("   Gain total: {} g", gainTotal);
+            
+            // 11. Retourner le résultat
+            Map<String, Object> result = new HashMap<>();
+            result.put("message", "Nourrissage réussi avec le plat " + plat.getNomPlat());
+            result.put("platUtilise", plat.getNomPlat());
+            result.put("idPlat", plat.getIdPlat());
+            result.put("quantitePlat", plat.getPoidsTotalPlat());
+            result.put("poissonsNourris", poissonsANourrir);
+            result.put("nourritureUtilisee", nourritureUtilisee);
+            result.put("gainTotal", gainTotal);
+            result.put("date", LocalDate.now());
+            
+            log.info("✅ FIN nourrirAvecPlat - SUCCÈS");
+            return result;
+            
+        } catch (Exception e) {
+            log.error("❌ ERREUR dans nourrirAvecPlat: {}", e.getMessage(), e);
+            e.printStackTrace();
+            throw new RuntimeException("Erreur lors du nourrissage avec plat: " + e.getMessage());
         }
+    }
+    
+    @Transactional
+    public Map<String, Object> nourrirPoissonsDansBassin(BigDecimal quantitePlatTotal, 
+                                                         BigDecimal proteinesParKg, 
+                                                         BigDecimal glucidesParKg,
+                                                         Long idBassin) {
         
-        if (plat.getPoidsTotalPlat() == null || 
-            plat.getPoidsTotalPlat().compareTo(BigDecimal.ZERO) <= 0) {
-            log.error("❌ Plat vide: poids = {}", plat.getPoidsTotalPlat());
-            throw new RuntimeException("Le plat est vide");
+        // Convertir kg en grammes pour les calculs
+        BigDecimal platTotalGrammes = quantitePlatTotal.multiply(new BigDecimal("1000"));
+        
+        // Calcul des nutriments totaux dans le plat
+        BigDecimal proteinesTotales = proteinesParKg.multiply(quantitePlatTotal);
+        BigDecimal glucidesTotales = glucidesParKg.multiply(quantitePlatTotal);
+        
+        // Récupérer les poissons affamés DANS LE BASSIN SPÉCIFIQUE
+        List<Poisson> poissonsAffames;
+        if (idBassin != null) {
+            poissonsAffames = poissonRepository
+                .findByPiscineActuelleIdPiscineAndEstRassasiePoissonFalseAndEstVenduPoissonFalseAndEstEnViePoissonTrue(idBassin);
+        } else {
+            // Si pas de bassin spécifié, prendre tous les poissons affamés
+            poissonsAffames = poissonRepository
+                .findByEstRassasiePoissonFalseAndEstVenduPoissonFalseAndEstEnViePoissonTrue();
         }
-        
-        if (plat.getProteinesParKgPlat() == null || plat.getGlucidesParKgPlat() == null) {
-            log.error("❌ Valeurs nutritionnelles manquantes");
-            throw new RuntimeException("Valeurs nutritionnelles manquantes dans le plat");
-        }
-        
-        // 3. Récupérer les poissons affamés
-        List<Poisson> poissonsAffames = poissonRepository
-            .findByEstRassasiePoissonFalseAndEstVenduPoissonFalseAndEstEnViePoissonTrue();
-        
-        log.info("🐟 Poissons affamés trouvés: {}", poissonsAffames.size());
         
         if (poissonsAffames.isEmpty()) {
-            log.warn("⚠️ Aucun poisson affamé");
+            String message = idBassin != null 
+                ? "Aucun poisson affamé dans le bassin spécifié" 
+                : "Aucun poisson affamé";
             return Map.of(
-                "message", "Aucun poisson affamé à nourrir",
-                "platUtilise", plat.getNomPlat(),
-                "idPlat", plat.getIdPlat(),
-                "quantitePlat", plat.getPoidsTotalPlat(),
+                "message", message,
                 "poissonsNourris", 0,
-                "nourritureUtilisee", BigDecimal.ZERO
+                "nourritureRestante", platTotalGrammes
             );
         }
         
-        // 4. Convertir le poids du plat (kg → grammes pour les calculs)
-        BigDecimal poidsPlatGrammes = plat.getPoidsTotalPlat()
-            .multiply(new BigDecimal("1000"));
+        // Calcul du besoin total (règle de trois)
+        BigDecimal besoinPlatParPoisson = new BigDecimal("5.0");
+        BigDecimal besoinTotal = besoinPlatParPoisson.multiply(new BigDecimal(poissonsAffames.size()));
         
-        log.info("📊 Conversion: {} kg = {} g", 
-            plat.getPoidsTotalPlat(), poidsPlatGrammes);
-        
-        // 5. Calculer la quantité par poisson (5g minimum par poisson)
-        BigDecimal besoinParPoisson = new BigDecimal("5.0"); // 5g par poisson
-        BigDecimal besoinTotal = besoinParPoisson.multiply(
-            new BigDecimal(poissonsAffames.size())
-        );
-        
-        log.info("🧮 Besoins: {} poissons × {} g = {} g total",
-            poissonsAffames.size(), besoinParPoisson, besoinTotal);
-        
-        // 6. Vérifier si assez de nourriture
-        BigDecimal quantiteParPoisson;
-        int poissonsANourrir;
-        
-        if (poidsPlatGrammes.compareTo(besoinTotal) >= 0) {
-            // Assez pour tous les poissons
-            quantiteParPoisson = besoinParPoisson;
-            poissonsANourrir = poissonsAffames.size();
-            log.info("✅ Assez de nourriture pour tous les poissons ({} g/poisson)", 
-                quantiteParPoisson);
-        } else {
-            // Nourriture limitée, on nourrit proportionnellement
-            poissonsANourrir = poidsPlatGrammes
-                .divide(besoinParPoisson, 0, RoundingMode.FLOOR)
-                .intValue();
-            quantiteParPoisson = besoinParPoisson;
-            log.info("⚠️ Nourriture limitée: {} poissons nourris sur {}",
-                poissonsANourrir, poissonsAffames.size());
+        // Vérifier si assez de nourriture
+        if (platTotalGrammes.compareTo(besoinTotal) < 0) {
+            // Répartir proportionnellement
+            return repartirNourritureLimitee(poissonsAffames, platTotalGrammes, proteinesParKg, glucidesParKg, idBassin);
         }
         
-        // 7. Nourrir les poissons
-        List<Fisakafoanana> historiques = new ArrayList<>();
-        BigDecimal gainTotal = BigDecimal.ZERO;
+        // Assez de nourriture pour tous
+        return nourrirTousPoissonsDansBassin(poissonsAffames, besoinPlatParPoisson, proteinesParKg, glucidesParKg, idBassin);
+    }
+    
+    private Map<String, Object> nourrirTousPoissonsDansBassin(List<Poisson> poissons, 
+                                                             BigDecimal quantiteParPoisson,
+                                                             BigDecimal proteinesParKg, 
+                                                             BigDecimal glucidesParKg,
+                                                             Long idBassin) {
         
-        for (int i = 0; i < Math.min(poissonsANourrir, poissonsAffames.size()); i++) {
-            Poisson poisson = poissonsAffames.get(i);
-            
-            log.info("🍴 Nourrir poisson {}: {} (ID: {})", 
-                i + 1, poisson.getNomPoisson(), poisson.getIdPoisson());
-            
+        List<Fisakafoanana> historiques = new ArrayList<>();
+        int poissonsNourris = 0;
+        
+        for (Poisson poisson : poissons) {
             Fisakafoanana historique = nourrirUnPoisson(
                 poisson, 
-                quantiteParPoisson, // en grammes
-                plat.getProteinesParKgPlat(), 
-                plat.getGlucidesParKgPlat()
+                quantiteParPoisson, 
+                proteinesParKg, 
+                glucidesParKg,
+                null // Nourrissage sans plat spécifique
             );
             
             historiques.add(historique);
-            gainTotal = gainTotal.add(historique.getGainPoidsFisakafoanana());
+            poissonsNourris++;
             
             // Marquer comme rassasié
             poisson.setEstRassasiePoisson(true);
             poissonRepository.save(poisson);
-            
-            log.info("   Gain: {} g", historique.getGainPoidsFisakafoanana());
         }
         
-        // 8. Sauvegarder l'historique
         fisakafoananaRepository.saveAll(historiques);
         
-        // 9. Marquer le plat comme utilisé
-        plat.setEstUtilisePlat(true);
-        platRepository.save(plat);
-        
-        // 10. Calculer la nourriture utilisée
-        BigDecimal nourritureUtilisee = quantiteParPoisson
-            .multiply(new BigDecimal(poissonsANourrir))
-            .divide(new BigDecimal("1000"), 4, RoundingMode.HALF_UP); // g → kg
-        
-        log.info("📈 Résumé:");
-        log.info("   Poissons nourris: {}", poissonsANourrir);
-        log.info("   Nourriture utilisée: {} kg ({} g)", 
-            nourritureUtilisee, nourritureUtilisee.multiply(new BigDecimal("1000")));
-        log.info("   Gain total: {} g", gainTotal);
-        
-        // 11. Retourner le résultat
-        Map<String, Object> result = new HashMap<>();
-        result.put("message", "Nourrissage réussi avec le plat " + plat.getNomPlat());
-        result.put("platUtilise", plat.getNomPlat());
-        result.put("idPlat", plat.getIdPlat());
-        result.put("quantitePlat", plat.getPoidsTotalPlat());
-        result.put("poissonsNourris", poissonsANourrir);
-        result.put("nourritureUtilisee", nourritureUtilisee);
-        result.put("gainTotal", gainTotal);
-        result.put("date", LocalDate.now());
-        
-        log.info("✅ FIN nourrirAvecPlat - SUCCÈS");
-        return result;
-        
-    } catch (Exception e) {
-        log.error("❌ ERREUR dans nourrirAvecPlat: {}", e.getMessage(), e);
-        e.printStackTrace();
-        throw new RuntimeException("Erreur lors du nourrissage avec plat: " + e.getMessage());
-    }
-}
-
-@Transactional
-public Map<String, Object> nourrirPoissonsDansBassin(BigDecimal quantitePlatTotal, 
-                                                     BigDecimal proteinesParKg, 
-                                                     BigDecimal glucidesParKg,
-                                                     Long idBassin) {
-    
-    // Convertir kg en grammes pour les calculs
-    BigDecimal platTotalGrammes = quantitePlatTotal.multiply(new BigDecimal("1000"));
-    
-    // Calcul des nutriments totaux dans le plat
-    BigDecimal proteinesTotales = proteinesParKg.multiply(quantitePlatTotal);
-    BigDecimal glucidesTotales = glucidesParKg.multiply(quantitePlatTotal);
-    
-    // Récupérer les poissons affamés DANS LE BASSIN SPÉCIFIQUE
-    List<Poisson> poissonsAffames;
-    if (idBassin != null) {
-        poissonsAffames = poissonRepository
-            .findByPiscineActuelleIdPiscineAndEstRassasiePoissonFalseAndEstVenduPoissonFalseAndEstEnViePoissonTrue(idBassin);
-    } else {
-        // Si pas de bassin spécifié, prendre tous les poissons affamés
-        poissonsAffames = poissonRepository
-            .findByEstRassasiePoissonFalseAndEstVenduPoissonFalseAndEstEnViePoissonTrue();
-    }
-    
-    if (poissonsAffames.isEmpty()) {
         String message = idBassin != null 
-            ? "Aucun poisson affamé dans le bassin spécifié" 
-            : "Aucun poisson affamé";
+            ? "Tous les poissons du bassin ont été nourris" 
+            : "Tous les poissons ont été nourris";
+        
         return Map.of(
             "message", message,
-            "poissonsNourris", 0,
-            "nourritureRestante", platTotalGrammes
+            "poissonsNourris", poissonsNourris,
+            "nourritureUtilisee", quantiteParPoisson.multiply(new BigDecimal(poissons.size())),
+            "date", LocalDate.now(),
+            "bassinId", idBassin
         );
     }
     
-    // Calcul du besoin total (règle de trois)
-    BigDecimal besoinPlatParPoisson = new BigDecimal("5.0");
-    BigDecimal besoinTotal = besoinPlatParPoisson.multiply(new BigDecimal(poissonsAffames.size()));
-    
-    // Vérifier si assez de nourriture
-    if (platTotalGrammes.compareTo(besoinTotal) < 0) {
-        // Répartir proportionnellement
-        return repartirNourritureLimitee(poissonsAffames, platTotalGrammes, proteinesParKg, glucidesParKg, idBassin);
-    }
-    
-    // Assez de nourriture pour tous
-    return nourrirTousPoissonsDansBassin(poissonsAffames, besoinPlatParPoisson, proteinesParKg, glucidesParKg, idBassin);
-}
-private Map<String, Object> nourrirTousPoissonsDansBassin(List<Poisson> poissons, 
-                                                         BigDecimal quantiteParPoisson,
-                                                         BigDecimal proteinesParKg, 
-                                                         BigDecimal glucidesParKg,
-                                                         Long idBassin) {
-    
-    List<Fisakafoanana> historiques = new ArrayList<>();
-    int poissonsNourris = 0;
-    
-    for (Poisson poisson : poissons) {
-        Fisakafoanana historique = nourrirUnPoisson(
-            poisson, 
-            quantiteParPoisson, 
-            proteinesParKg, 
-            glucidesParKg
-        );
-        
-        historiques.add(historique);
-        poissonsNourris++;
-        
-        // Marquer comme rassasié
-        poisson.setEstRassasiePoisson(true);
-        poissonRepository.save(poisson);
-    }
-    
-    fisakafoananaRepository.saveAll(historiques);
-    
-    String message = idBassin != null 
-        ? "Tous les poissons du bassin ont été nourris" 
-        : "Tous les poissons ont été nourris";
-    
-    return Map.of(
-        "message", message,
-        "poissonsNourris", poissonsNourris,
-        "nourritureUtilisee", quantiteParPoisson.multiply(new BigDecimal(poissons.size())),
-        "date", LocalDate.now(),
-        "bassinId", idBassin
-    );
-}
-
-private Map<String, Object> repartirNourritureLimitee(List<Poisson> poissons, 
-                                                     BigDecimal platTotal,
-                                                     BigDecimal proteinesParKg,
-                                                     BigDecimal glucidesParKg,
-                                                     Long idBassin) {
-    
-    BigDecimal besoinParPoisson = new BigDecimal("5.0");
-    int nombrePoissonsNourris = platTotal.divide(besoinParPoisson, 0, RoundingMode.FLOOR).intValue();
-    
-    List<Fisakafoanana> historiques = new ArrayList<>();
-    
-    for (int i = 0; i < Math.min(nombrePoissonsNourris, poissons.size()); i++) {
-        Poisson poisson = poissons.get(i);
-        
-        Fisakafoanana historique = nourrirUnPoisson(
-            poisson, 
-            besoinParPoisson, 
-            proteinesParKg, 
-            glucidesParKg
-        );
-        
-        historiques.add(historique);
-        poisson.setEstRassasiePoisson(true);
-        poissonRepository.save(poisson);
-    }
-    
-    fisakafoananaRepository.saveAll(historiques);
-    
-    BigDecimal nourritureRestante = platTotal.subtract(
-        besoinParPoisson.multiply(new BigDecimal(nombrePoissonsNourris))
-    );
-    
-    String message = idBassin != null 
-        ? "Nourriture limitée, certains poissons du bassin nourris" 
-        : "Nourriture limitée, certains poissons nourris";
-    
-    return Map.of(
-        "message", message,
-        "poissonsNourris", nombrePoissonsNourris,
-        "poissonsAffamesRestants", poissons.size() - nombrePoissonsNourris,
-        "nourritureRestante", nourritureRestante,
-        "date", LocalDate.now(),
-        "bassinId", idBassin
-    );
-}
-
     // Dans NourrissageService.java
     @Transactional(readOnly = true)
     public List<Poisson> getPoissonsAffamesAvecDetails() {
@@ -574,4 +619,5 @@ private Map<String, Object> repartirNourritureLimitee(List<Poisson> poissons,
         return poissons;
     }
 }
+
 

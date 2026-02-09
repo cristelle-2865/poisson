@@ -1,14 +1,15 @@
-// CompositionPlat.java
 package com.example.poisson.model;
 
 import jakarta.persistence.*;
 import lombok.Data;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties; // IMPORT
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "compositionplat")
 @Data
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"}) // AJOUTEZ
 public class CompositionPlat {
     
     @Id
@@ -18,10 +19,12 @@ public class CompositionPlat {
     
     @ManyToOne
     @JoinColumn(name = "id_plat", nullable = false)
+    @JsonIgnoreProperties({"compositions", "hibernateLazyInitializer", "handler"}) // MODIFIÉ
     private Plat plat;
     
     @ManyToOne
     @JoinColumn(name = "id_aliment", nullable = false)
+    @JsonIgnoreProperties({"compositions", "hibernateLazyInitializer", "handler"}) // MODIFIÉ
     private Aliment aliment;
     
     @Column(name = "poids_aliment_composition", nullable = false, precision = 8, scale = 2)

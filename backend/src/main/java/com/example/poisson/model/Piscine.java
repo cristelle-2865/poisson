@@ -1,13 +1,13 @@
+// Piscine.java - AJOUTEZ ce champ
 package com.example.poisson.model;
 
 import jakarta.persistence.*;
 import lombok.Data;
 import java.math.BigDecimal;
-import java.math.RoundingMode;  // AJOUTER CET IMPORT
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-
 
 @Entity
 @Table(name = "piscine")
@@ -34,6 +34,10 @@ public class Piscine {
     @Column(name = "date_creation_piscine")
     private LocalDateTime dateCreationPiscine = LocalDateTime.now();
     
+    // AJOUTEZ CE CHAMP
+    @Column(name = "date_modification_piscine")
+    private LocalDateTime dateModificationPiscine;
+    
     @Column(name = "volume_piscine", precision = 10, scale = 2)
     private BigDecimal volumePiscine;
     
@@ -55,7 +59,7 @@ public class Piscine {
     @Transient
     public Integer getCapaciteRestante() {
         if (capaciteMaxPiscine == null) return 0;
-        return capaciteMaxPiscine - getNombrePoissonsActuels();
+        return Math.max(0, capaciteMaxPiscine - getNombrePoissonsActuels());
     }
     
     @Transient
@@ -67,5 +71,12 @@ public class Piscine {
             .divide(BigDecimal.valueOf(capaciteMaxPiscine), 4, RoundingMode.HALF_UP)
             .multiply(BigDecimal.valueOf(100));
     }
+    
+    // AJOUTEZ cette méthode pour mettre à jour la date de modification
+    @PreUpdate
+    public void preUpdate() {
+        this.dateModificationPiscine = LocalDateTime.now();
+    }
 }
+
 

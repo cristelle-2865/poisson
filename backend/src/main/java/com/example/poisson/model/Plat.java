@@ -2,7 +2,8 @@ package com.example.poisson.model;
 
 import jakarta.persistence.*;
 import lombok.Data;
-import lombok.extern.slf4j.Slf4j; // AJOUTEZ CET IMPORT
+import lombok.extern.slf4j.Slf4j;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties; // IMPORT
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
@@ -13,7 +14,8 @@ import java.util.List;
 @Entity
 @Table(name = "plat")
 @Data
-@Slf4j // AJOUTEZ CETTE ANNOTATION
+@Slf4j
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"}) // AJOUTEZ
 public class Plat {
     
     @Id
@@ -56,6 +58,7 @@ public class Plat {
     
     // IMPORTANT : Ajoutez cascade = CascadeType.ALL pour que les compositions soient sauvegardées avec le plat
     @OneToMany(mappedBy = "plat", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
+    @JsonIgnoreProperties({"plat", "hibernateLazyInitializer", "handler"}) // AJOUTEZ
     private List<CompositionPlat> compositions = new ArrayList<>();
     
     // NOUVELLE MÉTHODE : Appelée après chaque chargement de l'entité
@@ -150,5 +153,4 @@ public class Plat {
         }
     }
 }
-
 

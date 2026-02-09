@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors; 
 
 @RestController
 @RequestMapping("/piscines")
@@ -114,6 +115,20 @@ public class PiscineController {
     public ResponseEntity<PiscineWithStatsDTO> getPiscineWithStats(@PathVariable Long id) {
         Piscine piscine = piscineService.getPiscineByIdWithRelations(id);
         return ResponseEntity.ok(new PiscineWithStatsDTO(piscine));
+    }
+
+    // PiscineController.java - Ajoutez ces méthodes
+    @GetMapping("/with-stats")
+    public ResponseEntity<List<PiscineWithStatsDTO>> getAllPiscinesWithStats() {
+        List<Piscine> piscines = piscineService.getAllPiscines();
+        List<PiscineWithStatsDTO> dtos = piscines.stream()
+            .map(p -> {
+                // Charger les poissons pour chaque piscine
+                Piscine piscineComplet = piscineService.getPiscineByIdWithRelations(p.getIdPiscine());
+                return new PiscineWithStatsDTO(piscineComplet);
+            })
+            .collect(Collectors.toList());
+        return ResponseEntity.ok(dtos);
     }
 }
 
