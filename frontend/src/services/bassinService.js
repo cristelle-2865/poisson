@@ -155,7 +155,69 @@ const bassinService = {
     async getByIdWithStats(id) {
         const response = await api.get(`/piscines/${id}/with-stats`)
         return response.data
+    },
+
+    /**
+ * Vérifier si un poisson doit changer de bassin (poids > 700g)
+ */
+async doitChangerDeBassin(idPoisson) {
+    try {
+        const response = await api.get(`/piscines/poisson/${idPoisson}/doit-changer`);
+        return response.data;
+    } catch (error) {
+        console.error('Erreur vérification changement bassin:', error);
+        throw error;
     }
+},
+
+/**
+ * Obtenir tous les poissons à déplacer dans un bassin
+ */
+async getPoissonsADeplacer(idBassin) {
+    try {
+        const response = await api.get(`/piscines/${idBassin}/poissons-a-deplacer`);
+        return response.data;
+    } catch (error) {
+        console.error('Erreur récupération poissons à déplacer:', error);
+        throw error;
+    }
+},
+
+/**
+ * Affecter un poisson à un nouveau bassin
+ */
+async affecterPoissonANouveauBassin(idPoisson, idNouveauBassin, raison = 'Transfert vers autre bassin') {
+    try {
+        const response = await api.post('/piscines/affecter-nouveau-bassin', null, {
+            params: { 
+                idPoisson, 
+                idNouveauBassin,
+                raison 
+            }
+        });
+        return response.data;
+    } catch (error) {
+        console.error('Erreur affectation à nouveau bassin:', error);
+        throw error;
+    }
+},
+/**
+ * Obtenir les bassins disponibles pour transfert (excluant le bassin actuel si spécifié)
+ */
+async getBassinsDisponiblesPourTransfert(idPoisson = null) {
+    try {
+        const params = {};
+        if (idPoisson) {
+            params.idPoisson = idPoisson;
+        }
+        const response = await api.get('/piscines/disponibles-pour-transfert', { params });
+        return response.data;
+    } catch (error) {
+        console.error('Erreur récupération bassins disponibles pour transfert:', error);
+        throw error;
+    }
+}
+
 };
 
 export default bassinService;

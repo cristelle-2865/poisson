@@ -1190,3 +1190,156 @@
 }
 
 
+/* Ajoutez ces styles au fichier bassin-detail */
+
+.poids-critique {
+  color: #e53e3e !important;
+  font-weight: bold;
+  background-color: #fff5f5;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.poids-warning {
+  display: block;
+  font-size: 12px;
+  color: #c53030;
+  margin-top: 2px;
+}
+
+.transfert-alert {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: 8px;
+}
+
+.alert-badge {
+  background-color: #fed7d7;
+  color: #c53030;
+  padding: 4px 8px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.btn-transfert {
+  background-color: #3182ce;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-transfert:hover {
+  background-color: #2c5282;
+  transform: translateY(-1px);
+}
+
+.modal-large {
+  max-width: 700px;
+  width: 90%;
+}
+
+.info-panel {
+  display: flex;
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  gap: 12px;
+}
+
+.info-panel.warning {
+  background-color: #fffbeb;
+  border-left: 4px solid #f6ad55;
+}
+
+.info-icon {
+  font-size: 24px;
+}
+
+.info-content h4 {
+  margin: 0 0 8px 0;
+  color: #744210;
+}
+
+.info-reason {
+  font-size: 14px;
+  color: #744210;
+  margin-top: 8px;
+}
+
+.bassins-transfert-list {
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  margin-top: 8px;
+}
+
+.bassin-transfert-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  border-bottom: 1px solid #e2e8f0;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.bassin-transfert-item:last-child {
+  border-bottom: none;
+}
+
+.bassin-transfert-item:hover {
+  background-color: #f7fafc;
+}
+
+.bassin-transfert-item.selected {
+  background-color: #ebf8ff;
+  border-left: 4px solid #3182ce;
+}
+
+.bassin-name {
+  font-weight: 600;
+  font-size: 16px;
+  margin-bottom: 6px;
+}
+
+.bassin-details {
+  display: flex;
+  gap: 16px;
+  font-size: 13px;
+  color: #4a5568;
+}
+
+.bassin-details span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.bassin-places {
+  color: #38a169;
+  font-weight: 600;
+}
+
+.no-bassins-disponibles {
+  text-align: center;
+  padding: 40px 20px;
+}
+
+.small {
+  font-size: 13px;
+  color: #718096;
+  margin-top: 8px;
+}
+
+

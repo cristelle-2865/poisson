@@ -210,6 +210,12 @@
                 </div>
               </div>
               <div class="poisson-actions">
+                 <div v-if="doitChangerDeBassin(poisson)" class="transfert-alert">
+                    <span class="alert-badge">⚠️ À déplacer</span>
+                    <button @click="openTransfertModal(poisson)" class="btn-transfert" title="Changer de bassin">
+                      🔄 Changer de bassin
+                    </button>
+                  </div>
                 <button @click="retirerPoisson(poisson)" class="btn-icon" title="Retirer du bassin">
                   🚫
                 </button>
@@ -238,9 +244,14 @@
               <!-- Informations principales -->
               <div class="info-grid">
                 <div class="info-item">
-                  <span class="info-label">Poids actuel</span>
-                  <span class="info-value">{{ poisson.poidsActuelPoisson }} kg</span>
-                </div>
+                <span class="info-label">Poids actuel</span>
+                <span class="info-value" :class="getPoidsClass(poisson)">
+                  {{ poisson.poidsActuelPoisson }} kg
+                  <span v-if="doitChangerDeBassin(poisson)" class="poids-warning">
+                    (À déplacer - >{{ SEUIL_POIDS_CHANGEMENT_BASSIN }}kg)
+                  </span>
+                </span>
+              </div>
                 <div class="info-item">
                   <span class="info-label">Poids max</span>
                   <span class="info-value">{{ poisson.poidsMaximalPoisson }} kg</span>
@@ -643,6 +654,114 @@
         </div>
       </div>
     </div>
+
+    <!-- Modale de transfert de poisson vers autre bassin -->
+<div v-if="showTransfertModal" class="modal-overlay">
+  <div class="modal modal-large">
+    <div class="modal-header">
+      <h3>🔄 Transférer {{ poissonATransfererNom }} vers un autre bassin</h3>
+      <button @click="closeTransfertModal" class="modal-close">×</button>
+    </div>
+    
+    <div class="modal-body">
+      <div class="transfert-info">
+        <div class="info-panel warning">
+          <div class="info-icon">⚠️</div>
+          <div class="info-content">
+            <h4>Poisson à déplacer</h4>
+            <p>
+              <strong>{{ poissonATransfererNom }}</strong> 
+              ({{ poissonATransfererPoids }} kg) dépasse le seuil de 
+              <strong>{{ SEUIL_POIDS_CHANGEMENT_BASSIN }} kg</strong>.
+            </p>
+            <p class="info-reason">
+              Pour optimiser la croissance, les poissons de plus de {{ SEUIL_POIDS_CHANGEMENT_BASSIN }}kg 
+              doivent être transférés vers un bassin moins chargé.
+            </p>
+          </div>
+        </div>
+      </div>
+      
+      <div v-if="bassinsDisponiblesLoading" class="loading-small">
+        <div class="spinner-small"></div>
+        <p>Chargement des bassins disponibles...</p>
+      </div>
+      
+      <div v-else-if="bassinsDisponibles.length === 0" class="no-bassins-disponibles">
+        <div class="no-data-icon">🏊</div>
+        <h4>Aucun bassin disponible</h4>
+        <p>Tous les bassins actifs sont pleins ou inaccessibles.</p>
+        <p class="small">Veuillez libérer de l'espace dans un bassin existant.</p>
+      </div>
+      
+      <div v-else>
+        <div class="form-group">
+          <label for="bassinTransfert">Sélectionnez le bassin de destination</label>
+          <div class="bassins-transfert-list">
+            <div 
+              v-for="bassin in bassinsDisponibles" 
+              :key="bassin.idPiscine"
+              class="bassin-transfert-item"
+              :class="{ 'selected': selectedBassinTransfert === bassin.idPiscine }"
+              @click="selectedBassinTransfert = bassin.idPiscine"
+            >
+              <div class="bassin-info">
+                <div class="bassin-name">{{ bassin.nomPiscine }}</div>
+                <div class="bassin-details">
+                  <span class="bassin-capacity">
+                    Capacité: {{ bassin.capaciteMaxPiscine }} poissons
+                  </span>
+                  <span class="bassin-occupation">
+                    Occupation: {{ getTauxOccupation(bassin) }}%
+                  </span>
+                  <span class="bassin-places">
+                    Places libres: {{ getCapaciteRestante(bassin) }}
+                  </span>
+                </div>
+              </div>
+              <div class="bassin-status">
+                <span class="status-badge" :class="bassin.estActivePiscine ? 'status-active' : 'status-inactive'">
+                  {{ bassin.estActivePiscine ? 'Actif' : 'Inactif' }}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label for="raisonTransfert">Raison du transfert</label>
+          <select id="raisonTransfert" v-model="raisonTransfert" class="filter-select">
+            <option value="Transfert vers autre bassin">Transfert vers autre bassin</option>
+            <option value="Densité excessive">Densité excessive</option>
+            <option value="Optimisation croissance">Optimisation croissance</option>
+            <option value="Autre">Autre raison</option>
+          </select>
+          <input 
+            v-if="raisonTransfert === 'Autre'" 
+            v-model="customRaisonTransfert" 
+            placeholder="Spécifiez la raison..."
+            class="search-input"
+            style="margin-top: 10px;"
+          />
+        </div>
+      </div>
+    </div>
+    
+    <div class="modal-footer">
+      <button @click="closeTransfertModal" class="btn-cancel">
+        Annuler
+      </button>
+      <button 
+        @click="confirmTransfert" 
+        class="btn-primary btn-transfert-confirm"
+        :disabled="!selectedBassinTransfert || bassinsDisponibles.length === 0"
+      >
+        🔄 Confirmer le transfert
+      </button>
+    </div>
+  </div>
+</div>
+
   </div>
 </template>
 
@@ -674,6 +793,17 @@ export default {
     const error = ref(null)
     const showHistoriqueAffectations = ref(false)
     const historiqueViewMode = ref('table') // 'table' ou 'graph'
+
+    const showTransfertModal = ref(false)
+    const poissonATransferer = ref(null)
+    const bassinsDisponibles = ref([])
+    const bassinsDisponiblesLoading = ref(false)
+    const selectedBassinTransfert = ref(null)
+    const raisonTransfert = ref('Transfert vers autre bassin')
+    const customRaisonTransfert = ref('')
+
+    // Seuil de poids pour changement de bassin
+ const SEUIL_POIDS_CHANGEMENT_BASSIN = 700
     
     // Filtres et tri pour les poissons
     const poissonFilter = ref({
@@ -707,11 +837,27 @@ export default {
     const gainChartBassin = ref(null)
     const satisfactionChartBassin = ref(null)
     const nourritureChartBassin = ref(null)
+
+    const poissonATransfererId = ref(null)
+    const poissonATransfererNom = ref('')
+    const poissonATransfererPoids = ref(0)
     
     // Instances des graphiques
     let gainChartInstance = null
     let satisfactionChartInstance = null
     let nourritureChartInstance = null
+
+    
+// Computed pour détecter les poissons à changer de bassin
+const poissonsAChangerBassin = computed(() => {
+    return poissons.value.filter(poisson => {
+        if (poisson.estVenduPoisson || !poisson.estEnViePoisson) {
+            return false
+        }
+        const poidsActuel = parseFloat(poisson.poidsActuelPoisson)
+        return poidsActuel > SEUIL_POIDS_CHANGEMENT_BASSIN
+    })
+})
     
     // Calcul des statistiques
     const nombrePoissonsActuels = computed(() => {
@@ -743,6 +889,140 @@ export default {
       )
     })
     
+
+    // Méthode pour ouvrir la modale de transfert
+// MODIFIEZ LA FONCTION openTransfertModal
+const openTransfertModal = (poisson) => {
+    // Sauvegarder les données du poisson individuellement
+    poissonATransfererId.value = poisson.idPoisson
+    poissonATransfererNom.value = poisson.nomPoisson
+    poissonATransfererPoids.value = poisson.poidsActuelPoisson
+    
+    selectedBassinTransfert.value = null
+    raisonTransfert.value = 'Transfert vers autre bassin'
+    customRaisonTransfert.value = ''
+    showTransfertModal.value = true
+    
+    // Charger les bassins disponibles avec l'ID du poisson
+    loadBassinsDisponiblesPourTransfert(poisson.idPoisson)
+}
+
+// Méthode pour charger les bassins disponibles pour transfert
+const loadBassinsDisponiblesPourTransfert = async (idPoisson) => {
+    bassinsDisponiblesLoading.value = true
+    try {
+        bassinsDisponibles.value = await bassinService.getBassinsDisponiblesPourTransfert(idPoisson)
+    } catch (error) {
+        console.error('Erreur chargement bassins disponibles:', error)
+        bassinsDisponibles.value = []
+    } finally {
+        bassinsDisponiblesLoading.value = false
+    }
+}
+
+// Méthode pour confirmer le transfert
+const confirmTransfert = async () => {
+    if (!poissonATransfererId.value) {
+        console.error('❌ Aucun poisson sélectionné pour le transfert')
+        alert('Erreur : poisson non identifié')
+        closeTransfertModal()
+        return
+    }
+    
+    if (!selectedBassinTransfert.value) {
+        alert('Veuillez sélectionner un bassin de destination')
+        return
+    }
+    
+    try {
+        const raison = raisonTransfert.value === 'Autre' 
+            ? customRaisonTransfert.value 
+            : raisonTransfert.value
+        
+        await bassinService.affecterPoissonANouveauBassin(
+            poissonATransfererId.value,
+            selectedBassinTransfert.value,
+            raison
+        )
+        
+        await loadData()
+        closeTransfertModal()
+        alert(`✅ Poisson ${poissonATransfererNom.value} transféré avec succès !`)
+        
+    } catch (err) {
+        console.error('❌ Erreur transfert poisson:', err)
+        alert(err.response?.data?.message || 'Erreur lors du transfert du poisson')
+    }
+}
+
+// Méthode pour fermer la modale de transfert
+const closeTransfertModal = () => {
+    showTransfertModal.value = false
+    poissonATransfererId.value = null
+    poissonATransfererNom.value = ''
+    poissonATransfererPoids.value = 0
+    selectedBassinTransfert.value = null
+}
+
+// Méthode pour vérifier si un poisson doit changer de bassin
+const doitChangerDeBassin = (poisson) => {
+    if (poisson.estVenduPoisson || !poisson.estEnViePoisson) {
+        return false
+    }
+    const poidsActuel = parseFloat(poisson.poidsActuelPoisson)
+    const doitChanger = poidsActuel >= SEUIL_POIDS_CHANGEMENT_BASSIN
+    
+    // Log pour déboguer
+    console.log(`🐟 ${poisson.nomPoisson}: poids=${poidsActuel}kg, seuil=${SEUIL_POIDS_CHANGEMENT_BASSIN}kg, doitChanger=${doitChanger}`)
+    
+    return doitChanger
+}
+
+// Méthode pour obtenir la classe CSS du poids
+const getPoidsClass = (poisson) => {
+    if (doitChangerDeBassin(poisson)) {
+        return 'poids-critique'
+    }
+    return ''
+}
+
+/**
+ * Calculer le taux d'occupation d'un bassin
+ */
+const getTauxOccupation = (bassin) => {
+    if (!bassin || !bassin.capaciteMaxPiscine || bassin.capaciteMaxPiscine === 0) return 0
+    
+    let nombrePoissons = 0
+    if (bassin.nombrePoissonsActuels !== undefined) {
+        nombrePoissons = bassin.nombrePoissonsActuels
+    } else if (bassin.poissons && Array.isArray(bassin.poissons)) {
+        nombrePoissons = bassin.poissons.length
+    } else {
+        nombrePoissons = 0
+    }
+    
+    const taux = (nombrePoissons / bassin.capaciteMaxPiscine) * 100
+    return parseFloat(taux.toFixed(1))
+}
+
+/**
+ * Calculer la capacité restante d'un bassin
+ */
+const getCapaciteRestante = (bassin) => {
+    if (!bassin || !bassin.capaciteMaxPiscine) return 0
+    
+    let nombrePoissons = 0
+    if (bassin.nombrePoissonsActuels !== undefined) {
+        nombrePoissons = bassin.nombrePoissonsActuels
+    } else if (bassin.poissons && Array.isArray(bassin.poissons)) {
+        nombrePoissons = bassin.poissons.length
+    } else {
+        nombrePoissons = 0
+    }
+    
+    return Math.max(0, bassin.capaciteMaxPiscine - nombrePoissons)
+}
+
     // Méthode pour vérifier si un poisson est prêt à vendre
     const isPretAVendre = (poisson) => {
       if (poisson.estVenduPoisson || !poisson.estEnViePoisson) {
@@ -778,9 +1058,12 @@ export default {
         }
         
         // Charger les poissons du bassin
-        const poissonsData = await bassinService.getPoissons(route.params.id)
-        poissons.value = Array.isArray(poissonsData) ? poissonsData : []
-        
+       const poissonsData = await bassinService.getPoissons(route.params.id)
+poissons.value = Array.isArray(poissonsData) ? poissonsData.map(p => ({
+    ...p,
+    poidsActuelPoisson: parseFloat(p.poidsActuelPoisson) // Conversion en nombre
+})) : []
+
         // Charger l'historique des nourrissages pour ce bassin
         await loadHistoriqueNourrissage()
         
@@ -1534,8 +1817,30 @@ export default {
       onDateRangeChange,
       sortHistoriqueBy,
       nextHistoriquePage,
-      prevHistoriquePage
+      prevHistoriquePage,
+
+       SEUIL_POIDS_CHANGEMENT_BASSIN,
+  poissonsAChangerBassin,
+  doitChangerDeBassin,
+  getPoidsClass,
+  openTransfertModal,
+  closeTransfertModal,
+  confirmTransfert,
+  showTransfertModal,
+  // poissonATransferer,
+   poissonATransfererId,
+    poissonATransfererNom,
+    poissonATransfererPoids,
+  bassinsDisponibles,
+  bassinsDisponiblesLoading,
+  selectedBassinTransfert,
+  raisonTransfert,
+  customRaisonTransfert,
+
+  getTauxOccupation,
+    getCapaciteRestante,
     }
+
   }
 }
 </script>
