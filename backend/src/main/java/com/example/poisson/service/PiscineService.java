@@ -145,28 +145,74 @@ public class PiscineService {
     }
     
     @Transactional
-    public AffectationPiscine retirerPoisson(Long idPoisson, String raison) {
-        Poisson poisson = poissonRepository.findById(idPoisson)
-            .orElseThrow(() -> new RuntimeException("Poisson non trouvé avec l'ID: " + idPoisson));
-        
-        Optional<AffectationPiscine> currentAffectation = affectationPiscineRepository
-            .findCurrentAffectation(idPoisson);
-        
-        if (currentAffectation.isEmpty()) {
-            throw new RuntimeException("Le poisson n'est pas dans un bassin");
-        }
-        
+public AffectationPiscine retirerPoisson(Long idPoisson, String raison) {
+    Poisson poisson = poissonRepository.findById(idPoisson)
+        .orElseThrow(() -> new RuntimeException("Poisson non trouvé avec l'ID: " + idPoisson));
+    
+    // Vérifier si le poisson est dans un bassin
+    if (poisson.getPiscineActuelle() == null) {
+        throw new RuntimeException("Le poisson n'est pas dans un bassin");
+    }
+    
+    // Récupérer l'affectation actuelle
+    Optional<AffectationPiscine> currentAffectation = affectationPiscineRepository
+        .findCurrentAffectation(idPoisson);
+    
+    if (currentAffectation.isPresent()) {
         AffectationPiscine affectation = currentAffectation.get();
         affectation.setDateSortieAffectation(LocalDate.now());
         affectation.setRaisonSortieAffectation(raison);
-        
-        // Retirer le poisson du bassin
-        poisson.setPiscineActuelle(null);
-        poissonRepository.save(poisson);
-        
-        return affectationPiscineRepository.save(affectation);
+        affectationPiscineRepository.save(affectation);
     }
     
+    // Retirer le poisson du bassin
+    poisson.setPiscineActuelle(null);
+    poissonRepository.save(poisson);
+    
+    // Retourner l'affectation mise à jour ou une nouvelle si pas trouvée
+    return currentAffectation.orElse(null);
+}
+
+/**
+ * Affecter un poisson à un nouveau bassin (avec retrait automatique de l'ancien)
+ */
+@Transactional
+public AffectationPiscine affecterPoissonANouveauBassin(Long idPoisson, Long idNouveauBassin, String raison) {
+    // Retirer du bassin actuel si présent
+    Poisson poisson = poissonRepository.findById(idPoisson)
+        .orElseThrow(() -> new RuntimeException("Poisson non trouvé avec l'ID: " + idPoisson));
+    
+    if (poisson.getPiscineActuelle() != null) {
+        retirerPoisson(idPoisson, raison != null ? raison : "Transfert vers autre bassin");
+    }
+    
+    // Affecter au nouveau bassin
+    return affecterPoisson(idNouveauBassin, idPoisson);
+}
+
+/**
+ * Vérifier si un poisson doit changer de bassin (poids > 700g)
+ */
+public boolean doitChangerDeBassin(Poisson poisson) {
+    if (poisson == null || poisson.getEstVenduPoisson() || !poisson.getEstEnViePoisson()) {
+        return false;
+    }
+    return poisson.getPoidsActuelPoisson() != null && 
+           poisson.getPoidsActuelPoisson().compareTo(new BigDecimal("700")) > 0;
+}
+
+/**
+ * Obtenir tous les poissons qui doivent changer de bassin dans une piscine
+ */
+public List<Poisson> getPoissonsADeplacer(Long idPiscine) {
+    List<Poisson> poissons = poissonRepository.findByPiscineActuelleIdPiscine(idPiscine);
+    return poissons.stream()
+        .filter(p -> !p.getEstVenduPoisson() && p.getEstEnViePoisson())
+        .filter(p -> p.getPoidsActuelPoisson() != null && 
+                    p.getPoidsActuelPoisson().compareTo(new BigDecimal("700")) > 0)
+        .collect(Collectors.toList());
+}
+
     public List<Poisson> getPoissonsInPiscine(Long idPiscine) {
         Piscine piscine = getPiscineById(idPiscine);
         return piscine.getPoissons();

@@ -2,6 +2,7 @@ package com.example.poisson.model;
 
 import jakarta.persistence.*;
 import lombok.Data;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties; // AJOUTER CET IMPORT
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
@@ -33,7 +34,6 @@ public class Piscine {
     @Column(name = "date_creation_piscine")
     private LocalDateTime dateCreationPiscine = LocalDateTime.now();
     
-    
     @Column(name = "date_modification_piscine")
     private LocalDateTime dateModificationPiscine;
     
@@ -46,7 +46,9 @@ public class Piscine {
     @Column(name = "ph_piscine", precision = 4, scale = 2)
     private BigDecimal phPiscine;
     
+    // ✅ SOLUTION: AJOUTER @JsonIgnoreProperties pour éviter la boucle infinie
     @OneToMany(mappedBy = "piscineActuelle", fetch = FetchType.LAZY)
+    @JsonIgnoreProperties({"piscineActuelle", "affectationsPiscine"}) // ← CRUCIAL
     private List<Poisson> poissons = new ArrayList<>();
     
     @Transient
@@ -70,11 +72,8 @@ public class Piscine {
             .multiply(BigDecimal.valueOf(100));
     }
     
-   
     @PreUpdate
     public void preUpdate() {
         this.dateModificationPiscine = LocalDateTime.now();
     }
 }
-
-

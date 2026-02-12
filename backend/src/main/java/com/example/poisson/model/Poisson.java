@@ -81,13 +81,15 @@ public class Poisson {
     }
     
     // Relation avec le bassin actuel
-    @ManyToOne
+        @ManyToOne
     @JoinColumn(name = "id_piscine_actuel")
     @JsonIgnoreProperties({"poissons", "affectationsPiscine"}) 
     private Piscine piscineActuelle;
     
     // Relation avec l'historique des bassins
+      
     @OneToMany(mappedBy = "poisson", fetch = FetchType.LAZY)
+    @JsonIgnoreProperties({"poisson"})
     private List<AffectationPiscine> affectationsPiscine = new ArrayList<>();
     
 

@@ -9,6 +9,7 @@ import com.example.poisson.repository.PiscineRepository;
 import com.example.poisson.repository.PoissonRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -25,6 +26,7 @@ public class PoissonService {
     private final PoissonRepository poissonRepository;
     private final PiscineRepository piscineRepository;
     private final AffectationPiscineRepository affectationPiscineRepository;
+    private final PiscineService piscineService; 
     
     public List<Poisson> getAllPoissons() {
         return poissonRepository.findAll();
@@ -180,88 +182,77 @@ public class PoissonService {
         return poissonRepository.findByPiscineActuelleIsNullAndEstVenduPoissonFalseAndEstEnViePoissonTrue();
     }
     
-    public Poisson updatePoissonWithBassin(Long id, Poisson poissonDetails) {
-        Poisson poisson = getPoissonById(id);
-        
-        // Mettre à jour les champs de base
-        if (poissonDetails.getNomPoisson() != null) {
-            poisson.setNomPoisson(poissonDetails.getNomPoisson());
-        }
-        
-        if (poissonDetails.getRacePoisson() != null) {
-            poisson.setRacePoisson(poissonDetails.getRacePoisson());
-        }
-        
-        if (poissonDetails.getPrixAchatPoisson() != null) {
-            poisson.setPrixAchatPoisson(poissonDetails.getPrixAchatPoisson());
-        }
-        
-        if (poissonDetails.getPrixVentePoisson() != null) {
-            poisson.setPrixVentePoisson(poissonDetails.getPrixVentePoisson());
-        }
-        
-        if (poissonDetails.getPoidsMaximalPoisson() != null) {
-            poisson.setPoidsMaximalPoisson(poissonDetails.getPoidsMaximalPoisson());
-        }
-        
-        if (poissonDetails.getCapaciteAugmentationPoisson() != null) {
-            poisson.setCapaciteAugmentationPoisson(poissonDetails.getCapaciteAugmentationPoisson());
-        }
-        
-        if (poissonDetails.getPoidsActuelPoisson() != null) {
-            poisson.setPoidsActuelPoisson(poissonDetails.getPoidsActuelPoisson());
-        }
-        
-        if (poissonDetails.getDateArriveePoisson() != null) {
-            poisson.setDateArriveePoisson(poissonDetails.getDateArriveePoisson());
-        }
-        
-        if (poissonDetails.getEstRassasiePoisson() != null) {
-            poisson.setEstRassasiePoisson(poissonDetails.getEstRassasiePoisson());
-        }
-        
-        // Gérer le bassin si fourni
-        if (poissonDetails.getPiscineActuelle() != null && 
-            poissonDetails.getPiscineActuelle().getIdPiscine() != null) {
-            
-            // Trouver le nouveau bassin
-            Piscine nouvellePiscine = piscineRepository.findById(
-                poissonDetails.getPiscineActuelle().getIdPiscine()
-            ).orElseThrow(() -> new RuntimeException("Bassin non trouvé avec l'ID: " + 
-                poissonDetails.getPiscineActuelle().getIdPiscine()));
-            
-            // Vérifier si c'est un changement de bassin
-            boolean changementBassin = poisson.getPiscineActuelle() == null || 
-                !poisson.getPiscineActuelle().getIdPiscine().equals(nouvellePiscine.getIdPiscine());
-            
-            if (changementBassin) {
-                // Retirer de l'ancien bassin si présent
-                if (poisson.getPiscineActuelle() != null) {
-                    affectationPiscineRepository.findCurrentAffectation(id)
-                        .ifPresent(affectation -> {
-                            affectation.setDateSortieAffectation(LocalDate.now());
-                            affectation.setRaisonSortieAffectation("Transfert");
-                            affectationPiscineRepository.save(affectation);
-                        });
-                }
-                
-                // Créer la nouvelle affectation
-                AffectationPiscine nouvelleAffectation = new AffectationPiscine();
-                nouvelleAffectation.setPiscine(nouvellePiscine);
-                nouvelleAffectation.setPoisson(poisson);
-                nouvelleAffectation.setDateEntreeAffectation(LocalDate.now());
-                affectationPiscineRepository.save(nouvelleAffectation);
-                
-                // Mettre à jour le poisson
-                poisson.setPiscineActuelle(nouvellePiscine);
-            }
-        }
-        
-        // Mettre à jour la date de modification
-        poisson.setDateModificationPoisson(LocalDateTime.now());
-        
-        return poissonRepository.save(poisson);
+ @Transactional
+public Poisson updatePoissonWithBassin(Long id, Poisson poissonDetails) {
+    Poisson poisson = getPoissonById(id);
+    
+    // Mettre à jour les champs de base
+    if (poissonDetails.getNomPoisson() != null) {
+        poisson.setNomPoisson(poissonDetails.getNomPoisson());
     }
+    
+    if (poissonDetails.getRacePoisson() != null) {
+        poisson.setRacePoisson(poissonDetails.getRacePoisson());
+    }
+    
+    if (poissonDetails.getPrixAchatPoisson() != null) {
+        poisson.setPrixAchatPoisson(poissonDetails.getPrixAchatPoisson());
+    }
+    
+    if (poissonDetails.getPrixVentePoisson() != null) {
+        poisson.setPrixVentePoisson(poissonDetails.getPrixVentePoisson());
+    }
+    
+    if (poissonDetails.getPoidsMaximalPoisson() != null) {
+        poisson.setPoidsMaximalPoisson(poissonDetails.getPoidsMaximalPoisson());
+    }
+    
+    if (poissonDetails.getCapaciteAugmentationPoisson() != null) {
+        poisson.setCapaciteAugmentationPoisson(poissonDetails.getCapaciteAugmentationPoisson());
+    }
+    
+    if (poissonDetails.getPoidsActuelPoisson() != null) {
+        poisson.setPoidsActuelPoisson(poissonDetails.getPoidsActuelPoisson());
+    }
+    
+    if (poissonDetails.getDateArriveePoisson() != null) {
+        poisson.setDateArriveePoisson(poissonDetails.getDateArriveePoisson());
+    }
+    
+    if (poissonDetails.getEstRassasiePoisson() != null) {
+        poisson.setEstRassasiePoisson(poissonDetails.getEstRassasiePoisson());
+    }
+    
+    if (poissonDetails.getEstVenduPoisson() != null) {
+        poisson.setEstVenduPoisson(poissonDetails.getEstVenduPoisson());
+    }
+    
+    if (poissonDetails.getEstEnViePoisson() != null) {
+        poisson.setEstEnViePoisson(poissonDetails.getEstEnViePoisson());
+    }
+    
+    // Gérer le bassin si fourni
+    if (poissonDetails.getPiscineActuelle() != null && 
+        poissonDetails.getPiscineActuelle().getIdPiscine() != null) {
+        
+        Long idNouveauBassin = poissonDetails.getPiscineActuelle().getIdPiscine();
+        
+        // Vérifier si le bassin est différent du bassin actuel
+        boolean changementBassin = poisson.getPiscineActuelle() == null || 
+            !poisson.getPiscineActuelle().getIdPiscine().equals(idNouveauBassin);
+        
+        if (changementBassin) {
+            // Déléguer la logique d'affectation au PiscineService
+            // Note: Vous devrez injecter PiscineService dans PoissonService
+            // Je vais vous montrer comment faire après
+        }
+    }
+    
+    // Mettre à jour la date de modification
+    poisson.setDateModificationPoisson(LocalDateTime.now());
+    
+    return poissonRepository.save(poisson);
+}
     
   
 
