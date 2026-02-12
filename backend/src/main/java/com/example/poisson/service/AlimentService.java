@@ -5,7 +5,7 @@ import com.example.poisson.repository.AlimentRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.math.BigDecimal; // IMPORT AJOUTÉ ICI
+import java.math.BigDecimal; 
 import java.util.List;
 
 @Service

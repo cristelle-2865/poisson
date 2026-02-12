@@ -23,7 +23,7 @@ public class PlatResponseDto {
     private LocalDateTime dateCreationPlat;
     private List<CompositionResponseDto> compositions;
     
-    // AJOUT: Statistiques d'utilisation
+    // Statistiques d'utilisation
     private Long nombreUtilisations; // Combien de fois ce plat a été utilisé
     private BigDecimal gainTotalGenere; // Gain total généré par ce plat
     

@@ -38,7 +38,7 @@ public class PlatController {
         List<PlatResponseDto> plats = platService.getPlatsDisponiblesAsDto();
         log.info("📤 Retourne {} plats disponibles", plats.size());
         
-        // Ajouter un log pour chaque plat
+        // log pour chaque plat
         for (int i = 0; i < plats.size(); i++) {
             PlatResponseDto plat = plats.get(i);
             log.info("Plat {}: ID={}, Nom={}, Poids={}kg, Utilisé={}", 
@@ -119,7 +119,7 @@ public class PlatController {
         return ResponseEntity.ok(platService.utiliserPlatAsDto(id));
     }
 
-    // CORRECTION : Cette méthode doit utiliser le service, pas le repository directement
+  
     @PostMapping("/{id}/recalculer")
     public ResponseEntity<PlatResponseDto> recalculerPlat(@PathVariable Long id) {
         log.info("📥 POST /api/plats/{}/recalculer appelé", id);

@@ -27,7 +27,7 @@ public class PlatService {
     private final AlimentRepository alimentRepository;
     private final CompositionPlatRepository compositionPlatRepository;
     
-    // Méthodes DTO
+   
     
     @Transactional(readOnly = true)
     public List<PlatResponseDto> getAllPlatsAsDto() {
@@ -65,7 +65,7 @@ public class PlatService {
             ? platDto.getEstUtilisePlat() 
             : false);
         
-        // IMPORTANT : Initialiser la liste des compositions
+        // Initialiser la liste des compositions
         plat.setCompositions(new ArrayList<>());
         
         log.info("Plat créé (avant compositions): {}", plat.getNomPlat());
@@ -292,7 +292,7 @@ public class PlatService {
         
         // La méthode @PrePersist calculera automatiquement le coût et nutriments
         
-        // IMPORTANT : Ajouter à la liste du plat
+        // Ajouter à la liste du plat
         if (plat.getCompositions() == null) {
             plat.setCompositions(new ArrayList<>());
         }

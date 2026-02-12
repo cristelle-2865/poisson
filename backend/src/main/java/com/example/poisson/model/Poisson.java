@@ -3,7 +3,7 @@ package com.example.poisson.model;
 import jakarta.persistence.*;
 import lombok.Data;
 import java.math.BigDecimal;
-import java.math.RoundingMode;  // AJOUTER CET IMPORT
+import java.math.RoundingMode; 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -22,7 +22,7 @@ public class Poisson {
     
     @ManyToOne
     @JoinColumn(name = "id_racepoisson", nullable = false)
-    @JsonIgnoreProperties({"poissons"}) // Éviter la récursion
+    @JsonIgnoreProperties({"poissons"}) 
     private RacePoisson racePoisson;
     
     @Column(name = "nom_poisson", nullable = false, length = 100)
@@ -67,7 +67,7 @@ public class Poisson {
     @Column(name = "date_modification_poisson")
     private LocalDateTime dateModificationPoisson = LocalDateTime.now();
     
-    // Poisson.java - AJOUTER ces champs pour les besoins
+   
     @Transient
     public BigDecimal getBesoinsLipides() {
         // 1g de lipides par kg de poids corporel par jour
@@ -83,14 +83,14 @@ public class Poisson {
     // Relation avec le bassin actuel
     @ManyToOne
     @JoinColumn(name = "id_piscine_actuel")
-    @JsonIgnoreProperties({"poissons", "affectationsPiscine"}) // Éviter la récursion infinie
+    @JsonIgnoreProperties({"poissons", "affectationsPiscine"}) 
     private Piscine piscineActuelle;
     
     // Relation avec l'historique des bassins
     @OneToMany(mappedBy = "poisson", fetch = FetchType.LAZY)
     private List<AffectationPiscine> affectationsPiscine = new ArrayList<>();
     
-    // AJOUTER CETTE MÉTHODE :
+
     public BigDecimal getGainMaximumPossible() {
         BigDecimal poidsRestant = poidsMaximalPoisson.subtract(poidsActuelPoisson);
         return poidsRestant.min(capaciteAugmentationPoisson);
@@ -110,7 +110,7 @@ public class Poisson {
     }
 
 
-    // Ajoutez ces méthodes utilitaires
+ 
     @Transient
     public void assignToPiscine(Piscine piscine) {
         this.piscineActuelle = piscine;

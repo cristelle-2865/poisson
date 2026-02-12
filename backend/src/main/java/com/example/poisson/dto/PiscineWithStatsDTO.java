@@ -1,11 +1,10 @@
-// PiscineWithStatsDTO.java
 package com.example.poisson.dto;
 
-import com.example.poisson.model.Piscine; // AJOUTER CET IMPORT
+import com.example.poisson.model.Piscine; 
 import lombok.Data;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.math.RoundingMode; // AJOUTER CET IMPORT
+import java.math.RoundingMode; 
 
 @Data
 public class PiscineWithStatsDTO {
@@ -33,7 +32,6 @@ public class PiscineWithStatsDTO {
         this.descriptionPiscine = piscine.getDescriptionPiscine();
         this.estActivePiscine = piscine.getEstActivePiscine();
         this.dateCreationPiscine = piscine.getDateCreationPiscine();
-        // Si votre Piscine n'a pas dateModificationPiscine, commentez cette ligne
         // this.dateModificationPiscine = piscine.getDateModificationPiscine();
         this.volumePiscine = piscine.getVolumePiscine();
         this.temperaturePiscine = piscine.getTemperaturePiscine();

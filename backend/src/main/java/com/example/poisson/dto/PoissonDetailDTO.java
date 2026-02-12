@@ -23,10 +23,10 @@ public class PoissonDetailDTO {
     private Boolean estEnViePoisson;
     private BigDecimal capaciteAugmentationPoisson;
     
-    // Informations bassin - utiliser les mêmes noms que dans le modèle
-    private Long idPiscine;  // Au lieu de piscineId
-    private String nomPiscine;  // Au lieu de piscineNom
-    private Integer capaciteMaxPiscine;  // Au lieu de piscineCapacite
+   
+    private Long idPiscine;  
+    private String nomPiscine; 
+    private Integer capaciteMaxPiscine; 
     private Boolean estPretAVendre;
     private BigDecimal pourcentageProgression;
     

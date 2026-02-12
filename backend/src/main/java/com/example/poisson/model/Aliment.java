@@ -2,15 +2,15 @@ package com.example.poisson.model;
 
 import jakarta.persistence.*;
 import lombok.Data;
-import com.fasterxml.jackson.annotation.JsonIgnore; // AJOUTEZ CET IMPORT
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties; // AJOUTEZ CET IMPORT
+import com.fasterxml.jackson.annotation.JsonIgnore; 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties; 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "aliment")
 @Data
-@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"}) // AJOUTEZ CETTE LIGNE
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"}) 
 public class Aliment {
     
     @Id
@@ -45,18 +45,17 @@ public class Aliment {
     @Column(name = "date_modification_aliment")
     private LocalDateTime dateModificationAliment = LocalDateTime.now();
     
-    // AJOUTEZ CETTE RELATION SI ELLE N'EXISTE PAS
+   
     @OneToMany(mappedBy = "aliment", fetch = FetchType.LAZY)
-    @JsonIgnore // IMPORTANT: Éviter la récursion
+    @JsonIgnore 
     private java.util.List<CompositionPlat> compositions = new java.util.ArrayList<>();
 
-    // Aliment.java - AJOUTER ces champs
+   
     @Column(name = "lipides_par_kg_aliment", nullable = false, precision = 8, scale = 2)
     private BigDecimal lipidesParKgAliment = BigDecimal.ZERO;
 
     @Column(name = "vitamines_par_kg_aliment", nullable = false, precision = 8, scale = 2)
     private BigDecimal vitaminesParKgAliment = BigDecimal.ZERO;
 
-    // Mettre à jour la valeur par défaut dans le constructeur si nécessaire
 }
 

@@ -26,10 +26,9 @@ public class FisakafoananaController {
         return ResponseEntity.ok(fisakafoananaService.getHistoriqueByDate(date));
     }
     
-    // AJOUT: Endpoint pour récupérer l'historique par plat
+   
     @GetMapping("/plat/{platId}")
     public ResponseEntity<List<Fisakafoanana>> getHistoriqueByPlat(@PathVariable Long platId) {
-        // Vous devrez ajouter cette méthode dans FisakafoananaService
         // return ResponseEntity.ok(fisakafoananaService.getHistoriqueByPlat(platId));
         return ResponseEntity.ok().build();
     }

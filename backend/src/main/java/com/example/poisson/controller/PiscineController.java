@@ -104,8 +104,7 @@ public class PiscineController {
     public ResponseEntity<List<AffectationPiscine>> getHistoriquePoisson(@PathVariable Long idPoisson) {
         return ResponseEntity.ok(piscineService.getHistoriquePoisson(idPoisson));
     }
-    
-    // PiscineController.java - Ajouter ces endpoints
+  
     @GetMapping("/{id}/complet")
     public ResponseEntity<Map<String, Object>> getPiscineComplet(@PathVariable Long id) {
         return ResponseEntity.ok(piscineService.getPiscineWithStats(id));
@@ -117,7 +116,7 @@ public class PiscineController {
         return ResponseEntity.ok(new PiscineWithStatsDTO(piscine));
     }
 
-    // PiscineController.java - Ajoutez ces méthodes
+   
     @GetMapping("/with-stats")
     public ResponseEntity<List<PiscineWithStatsDTO>> getAllPiscinesWithStats() {
         List<Piscine> piscines = piscineService.getAllPiscines();

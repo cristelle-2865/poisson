@@ -1,4 +1,3 @@
-// AffectationPiscine.java
 package com.example.poisson.model;
 
 import jakarta.persistence.*;

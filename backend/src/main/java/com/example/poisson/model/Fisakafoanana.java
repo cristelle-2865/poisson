@@ -21,14 +21,14 @@ public class Fisakafoanana {
     
     @ManyToOne
     @JoinColumn(name = "id_poisson", nullable = false)
-    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"}) // MODIFIÉ: Retirer piscineActuelle et racePoisson
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"}) 
     private Poisson poisson;
     
-    // AJOUT: Relation avec Plat
+    
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_plat")
     @JsonIgnoreProperties({"compositions", "hibernateLazyInitializer", "handler"})
-    private Plat plat; // Plat utilisé pour ce nourrissage
+    private Plat plat; 
     
     @Column(name = "date_nourrissage_fisakafoanana", nullable = false)
     private LocalDate dateNourrissageFisakafoanana;

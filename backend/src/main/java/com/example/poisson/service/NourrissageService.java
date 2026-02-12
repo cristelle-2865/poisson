@@ -96,10 +96,10 @@ public class NourrissageService {
         );
     }
     
-    // MODIFIÉ: Ajouter le paramètre Plat dans nourrirUnPoisson
+    // Ajout du paramètre Plat dans nourrirUnPoisson
     private Fisakafoanana nourrirUnPoisson(Poisson poisson, BigDecimal quantitePlat,
                                          BigDecimal proteinesParKg, BigDecimal glucidesParKg,
-                                         Plat plat) { // AJOUT: paramètre plat
+                                         Plat plat) { 
     
         // IMPORTANT: quantitePlat est en GRAMMES ici (5g par poisson)
         // proteinesParKg et glucidesParKg sont en g/kg
@@ -341,7 +341,7 @@ public class NourrissageService {
         );
     }
     
-    // Nouvelle méthode simplifiée pour le contrôleur
+   
     @Transactional
     public Map<String, Object> nourrirPoissonsSimple(BigDecimal quantitePlat) {
         // Valeurs par défaut pour les larves
@@ -451,13 +451,13 @@ public class NourrissageService {
                 log.info("🍴 Nourrir poisson {}: {} (ID: {})", 
                     i + 1, poisson.getNomPoisson(), poisson.getIdPoisson());
                 
-                // MODIFIÉ: Passer le plat comme paramètre
+                // Passer le plat comme paramètre
                 Fisakafoanana historique = nourrirUnPoisson(
                     poisson, 
                     quantiteParPoisson, // en grammes
                     plat.getProteinesParKgPlat(), 
                     plat.getGlucidesParKgPlat(),
-                    plat // AJOUT: Plat utilisé
+                    plat // Plat utilisé
                 );
                 
                 historiques.add(historique);

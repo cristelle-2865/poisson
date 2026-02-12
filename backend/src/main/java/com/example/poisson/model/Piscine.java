@@ -1,4 +1,3 @@
-// Piscine.java - AJOUTEZ ce champ
 package com.example.poisson.model;
 
 import jakarta.persistence.*;
@@ -34,7 +33,7 @@ public class Piscine {
     @Column(name = "date_creation_piscine")
     private LocalDateTime dateCreationPiscine = LocalDateTime.now();
     
-    // AJOUTEZ CE CHAMP
+    
     @Column(name = "date_modification_piscine")
     private LocalDateTime dateModificationPiscine;
     
@@ -47,7 +46,6 @@ public class Piscine {
     @Column(name = "ph_piscine", precision = 4, scale = 2)
     private BigDecimal phPiscine;
     
-    // Relation avec les poissons
     @OneToMany(mappedBy = "piscineActuelle", fetch = FetchType.LAZY)
     private List<Poisson> poissons = new ArrayList<>();
     
@@ -72,7 +70,7 @@ public class Piscine {
             .multiply(BigDecimal.valueOf(100));
     }
     
-    // AJOUTEZ cette méthode pour mettre à jour la date de modification
+   
     @PreUpdate
     public void preUpdate() {
         this.dateModificationPiscine = LocalDateTime.now();

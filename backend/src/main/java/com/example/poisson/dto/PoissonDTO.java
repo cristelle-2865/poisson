@@ -1,4 +1,3 @@
-// PoissonDTO.java (Optionnel, mais recommandé)
 package com.example.poisson.dto;
 
 import com.example.poisson.model.Piscine;

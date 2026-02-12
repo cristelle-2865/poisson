@@ -1,4 +1,3 @@
-// StatistiqueService.java - Mise à jour
 package com.example.poisson.service;
 
 import com.example.poisson.repository.*;
@@ -63,10 +62,6 @@ public class StatistiqueService {
     
     public Map<String, Object> getStatistiquesMensuelles(int mois, int annee) {
         Map<String, Object> stats = new HashMap<>();
-        
-        // Implémentez les statistiques mensuelles ici
-        // ...
-        
         return stats;
     }
 }

@@ -28,7 +28,7 @@ public interface AffectationPiscineRepository extends JpaRepository<AffectationP
     
     List<AffectationPiscine> findByPoissonIdPoissonOrderByDateEntreeAffectationDesc(Long idPoisson);
     
-    // AJOUTEZ CETTE MÉTHODE CRITIQUE
+   
     @Query("SELECT a FROM AffectationPiscine a " +
            "LEFT JOIN FETCH a.poisson p " +
            "LEFT JOIN FETCH p.racePoisson " +
@@ -36,7 +36,7 @@ public interface AffectationPiscineRepository extends JpaRepository<AffectationP
            "ORDER BY a.dateEntreeAffectation DESC")
     List<AffectationPiscine> findHistoriqueWithPoissonDetails(@Param("idPiscine") Long idPiscine);
     
-    // Optionnel: Pour charger aussi la piscine
+   
     @Query("SELECT a FROM AffectationPiscine a " +
            "LEFT JOIN FETCH a.poisson p " +
            "LEFT JOIN FETCH p.racePoisson " +

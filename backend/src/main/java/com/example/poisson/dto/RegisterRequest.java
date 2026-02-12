@@ -1,4 +1,3 @@
-// RegisterRequest.java
 package com.example.poisson.dto;
 
 import lombok.Data;

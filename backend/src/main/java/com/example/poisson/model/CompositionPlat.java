@@ -2,14 +2,14 @@ package com.example.poisson.model;
 
 import jakarta.persistence.*;
 import lombok.Data;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties; // IMPORT
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties; 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "compositionplat")
 @Data
-@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"}) // AJOUTEZ
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"}) 
 public class CompositionPlat {
     
     @Id
@@ -19,12 +19,12 @@ public class CompositionPlat {
     
     @ManyToOne
     @JoinColumn(name = "id_plat", nullable = false)
-    @JsonIgnoreProperties({"compositions", "hibernateLazyInitializer", "handler"}) // MODIFIÉ
+    @JsonIgnoreProperties({"compositions", "hibernateLazyInitializer", "handler"}) 
     private Plat plat;
     
     @ManyToOne
     @JoinColumn(name = "id_aliment", nullable = false)
-    @JsonIgnoreProperties({"compositions", "hibernateLazyInitializer", "handler"}) // MODIFIÉ
+    @JsonIgnoreProperties({"compositions", "hibernateLazyInitializer", "handler"}) 
     private Aliment aliment;
     
     @Column(name = "poids_aliment_composition", nullable = false, precision = 8, scale = 2)
@@ -45,7 +45,7 @@ public class CompositionPlat {
     @Column(name = "date_modification_composition")
     private LocalDateTime dateModificationComposition = LocalDateTime.now();
     
-    // CompositionPlat.java - AJOUTER ces champs
+ 
     @Column(name = "lipides_composition", precision = 8, scale = 2)
     private BigDecimal lipidesComposition;
 
@@ -75,7 +75,7 @@ public class CompositionPlat {
             .multiply(aliment.getLipidesParKgAliment())
             .divide(new BigDecimal("1000"), 2, BigDecimal.ROUND_HALF_UP);
         
-            // AJOUTER : Calcul des vitamines
+            // Calcul des vitamines
             vitaminesComposition = poidsAlimentComposition
                 .multiply(aliment.getVitaminesParKgAliment())
                 .divide(new BigDecimal("1000"), 2, BigDecimal.ROUND_HALF_UP);

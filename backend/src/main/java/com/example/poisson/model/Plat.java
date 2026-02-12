@@ -3,7 +3,7 @@ package com.example.poisson.model;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties; // IMPORT
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties; 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
@@ -15,7 +15,7 @@ import java.util.List;
 @Table(name = "plat")
 @Data
 @Slf4j
-@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"}) // AJOUTEZ
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Plat {
     
     @Id
@@ -56,9 +56,9 @@ public class Plat {
     @Column(name = "date_creation_plat")
     private LocalDateTime dateCreationPlat = LocalDateTime.now();
     
-    // IMPORTANT : Ajoutez cascade = CascadeType.ALL pour que les compositions soient sauvegardées avec le plat
+   
     @OneToMany(mappedBy = "plat", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
-    @JsonIgnoreProperties({"plat", "hibernateLazyInitializer", "handler"}) // AJOUTEZ
+    @JsonIgnoreProperties({"plat", "hibernateLazyInitializer", "handler"}) 
     private List<CompositionPlat> compositions = new ArrayList<>();
     
     @Column(name = "lipides_total_plat", precision = 8, scale = 2)
@@ -73,7 +73,7 @@ public class Plat {
     @Column(name = "vitamines_par_kg_plat", precision = 8, scale = 2)
     private BigDecimal vitaminesParKgPlat = BigDecimal.ZERO;
 
-    // NOUVELLE MÉTHODE : Appelée après chaque chargement de l'entité
+  
     @PostLoad
     @PostPersist
     @PostUpdate
@@ -85,8 +85,8 @@ public class Plat {
         BigDecimal totalCout = BigDecimal.ZERO;
         BigDecimal totalProteines = BigDecimal.ZERO;
         BigDecimal totalGlucides = BigDecimal.ZERO;
-        BigDecimal totalLipides = BigDecimal.ZERO; // NOUVEAU
-        BigDecimal totalVitamines = BigDecimal.ZERO; // NOUVEAU
+        BigDecimal totalLipides = BigDecimal.ZERO; 
+        BigDecimal totalVitamines = BigDecimal.ZERO; 
         
         if (compositions != null) {
             log.info("  Nombre de compositions: {}", compositions.size());
@@ -104,11 +104,11 @@ public class Plat {
                 if (comp.getGlucidesComposition() != null) {
                     totalGlucides = totalGlucides.add(comp.getGlucidesComposition());
                 }
-                // NOUVEAU : Lipides
+              
                 if (comp.getLipidesComposition() != null) {
                     totalLipides = totalLipides.add(comp.getLipidesComposition());
                 }
-                // NOUVEAU : Vitamines
+        
                 if (comp.getVitaminesComposition() != null) {
                     totalVitamines = totalVitamines.add(comp.getVitaminesComposition());
                 }
@@ -119,8 +119,8 @@ public class Plat {
         this.coutTotalPlat = totalCout;
         this.proteinesTotalPlat = totalProteines;
         this.glucidesTotalPlat = totalGlucides;
-        this.lipidesTotalPlat = totalLipides; // NOUVEAU
-        this.vitaminesTotalPlat = totalVitamines; // NOUVEAU
+        this.lipidesTotalPlat = totalLipides; 
+        this.vitaminesTotalPlat = totalVitamines; 
         
         // Calculer par kg
         if (this.poidsTotalPlat.compareTo(BigDecimal.ZERO) > 0) {
@@ -132,24 +132,24 @@ public class Plat {
                 .multiply(new BigDecimal("1000"))
                 .divide(this.poidsTotalPlat, 2, RoundingMode.HALF_UP);
             
-            // NOUVEAU : Lipides par kg
+            // Lipides par kg
             this.lipidesParKgPlat = this.lipidesTotalPlat
                 .multiply(new BigDecimal("1000"))
                 .divide(this.poidsTotalPlat, 2, RoundingMode.HALF_UP);
             
-            // NOUVEAU : Vitamines par kg
+            // Vitamines par kg
             this.vitaminesParKgPlat = this.vitaminesTotalPlat
                 .multiply(new BigDecimal("1000"))
                 .divide(this.poidsTotalPlat, 2, RoundingMode.HALF_UP);
         } else {
             this.proteinesParKgPlat = BigDecimal.ZERO;
             this.glucidesParKgPlat = BigDecimal.ZERO;
-            this.lipidesParKgPlat = BigDecimal.ZERO; // NOUVEAU
-            this.vitaminesParKgPlat = BigDecimal.ZERO; // NOUVEAU
+            this.lipidesParKgPlat = BigDecimal.ZERO; 
+            this.vitaminesParKgPlat = BigDecimal.ZERO;
         }
     } 
     
-    // Méthode pour ajouter une composition (utile pour l'interface)
+    // Méthode pour ajouter une composition 
     public void ajouterComposition(Aliment aliment, BigDecimal poids) {
         CompositionPlat composition = new CompositionPlat();
         composition.setPlat(this);

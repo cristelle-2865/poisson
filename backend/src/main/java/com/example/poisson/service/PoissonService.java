@@ -54,10 +54,6 @@ public class PoissonService {
         Poisson poisson = poissonRepository.findById(id)
             .orElseThrow(() -> new RuntimeException("Poisson non trouvé avec l'ID: " + id));
         
-        // Initialiser les relations si nécessaire (pour éviter LazyInitializationException)
-        // Pour les relations ManyToOne, JPA les charge généralement automatiquement
-        // Cette méthode est utile pour forcer le chargement des collections si nécessaire
-        
         return poisson;
     }
 
@@ -179,7 +175,6 @@ public class PoissonService {
         return stats;
     }
     
-    // NOUVELLES MÉTHODES POUR LES BASSINS
     
     public List<Poisson> getPoissonsWithoutPiscine() {
         return poissonRepository.findByPiscineActuelleIsNullAndEstVenduPoissonFalseAndEstEnViePoissonTrue();
@@ -268,12 +263,7 @@ public class PoissonService {
         return poissonRepository.save(poisson);
     }
     
-    // Cette méthode est un doublon de updatePoissonWithBassin, vous pouvez la supprimer
-    // public Poisson updatePoissonWithPiscine(Long id, Poisson poissonDetails) {
-    //     // Cette méthode fait la même chose que updatePoissonWithBassin
-    //     // Vous pouvez la supprimer ou la garder comme alias
-    //     return updatePoissonWithBassin(id, poissonDetails);
-    // }
+  
 
     public Poisson createPoissonWithPiscine(Poisson poisson) {
         // Créer le poisson d'abord
