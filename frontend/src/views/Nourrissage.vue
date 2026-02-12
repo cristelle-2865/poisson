@@ -1,15 +1,21 @@
+<!-- NourrissageCombined.vue -->
 <template>
   <div class="nourrissage-page">
     <div class="page-header">
-      <h1>Nourrissage des Poissons</h1>
+      <h1>
+    Nourrissage des Poissons
+    <span v-if="stats.bassinNom" class="bassin-info">
+      - Bassin: {{ stats.bassinNom }}
+    </span>
+  </h1>
       <div class="header-info">
         <div class="info-item">
           <span class="label">Poissons affamés:</span>
           <span class="value hungry">{{ stats.poissonsAffames || 0 }}</span>
         </div>
         <div class="info-item">
-          <span class="label">Total nutriments:</span>
-          <span class="value">{{ calculateTotalNutrients() }} g</span>
+          <span class="label">Besoin total:</span>
+          <span class="value">{{ besoinTotal }} g</span>
         </div>
         <div class="info-item">
           <span class="label">Coût estimé:</span>
@@ -24,29 +30,130 @@
         <div class="card">
           <h2>Nouveau Nourrissage</h2>
           
-          <!-- Sélection de l'aliment -->
-          <div class="food-section">
-            <h3>1. Sélectionnez l'aliment</h3>
+          <!-- Mode de sélection : Plat ou Aliment -->
+          <div class="mode-select-section">
+            <h3>1. Mode de nourrissage</h3>
+            <div class="mode-select-options">
+              <div class="mode-option" 
+                   :class="{ selected: modeNourrissage === 'aliment' }"
+                   @click="modeNourrissage = 'aliment'">
+                <div class="mode-icon">🥫</div>
+                <div class="mode-content">
+                  <h4>Aliment simple</h4>
+                  <p>Utiliser un aliment directement depuis le stock</p>
+                </div>
+              </div>
+              
+              <div class="mode-option" 
+                   :class="{ selected: modeNourrissage === 'plat' }"
+                   @click="modeNourrissage = 'plat'">
+                <div class="mode-icon">🍽️</div>
+                <div class="mode-content">
+                  <h4>Plat préparé</h4>
+                  <p>Utiliser un plat déjà composé</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Sélection de PLAT (nouvelle section) -->
+          <div v-if="modeNourrissage === 'plat'" class="plat-section">
+            <h3>2. Sélectionnez un plat</h3>
+            <div v-if="platsDisponibles.length === 0" class="no-data">
+              <p>Aucun plat disponible. Créez d'abord des plats dans la section "Plats".</p>
+            </div>
+            <div v-else class="plat-options">
+                <div v-for="plat in platsDisponibles" :key="plat.idPlat" 
+                    class="plat-option" 
+                    :class="{ 
+                      selected: selectedPlatId === plat.idPlat,
+                      'unavailable': plat.poidsTotalPlat <= 0
+                    }"
+                    @click="selectPlat(plat)"
+                    :title="plat.poidsTotalPlat <= 0 ? 'Plat épuisé' : ''">
+                  
+                  <div class="plat-icon">🍽️</div>
+                  <div class="plat-info">
+                    <h4>{{ plat.nomPlat }}</h4>
+                    <div class="plat-status" :class="{
+                      'available': plat.poidsTotalPlat > 0,
+                      'unavailable': plat.poidsTotalPlat <= 0
+                    }">
+                      {{ plat.poidsTotalPlat > 0 ? 'Disponible' : 'Épuisé' }}
+                    </div>
+                    <div class="plat-details">
+                      <span><strong>Quantité:</strong> {{ plat.poidsTotalPlat }} kg</span>
+                      <span><strong>Protéines:</strong> {{ plat.proteinesParKgPlat }} g/kg</span>
+                      <span><strong>Glucides:</strong> {{ plat.glucidesParKgPlat }} g/kg</span>
+                      <span><strong>Coût:</strong> {{ plat.coutTotalPlat }} MGA</span>
+                    </div>
+                  </div>
+                  
+                  <!-- Indicateur de sélection -->
+                  <div v-if="selectedPlatId === plat.idPlat" class="selection-indicator">
+                    ✓ Sélectionné
+                  </div>
+                </div>
+              </div>
+            
+            <!-- Détails du plat sélectionné -->
+            <div v-if="selectedPlat" class="plat-details-section">
+              <h4>Détails du plat sélectionné</h4>
+              <div class="plat-details-card">
+                <div class="plat-detail-row">
+                  <span class="detail-label">Nom:</span>
+                  <span class="detail-value">{{ selectedPlat.nomPlat }}</span>
+                </div>
+                <div class="plat-detail-row">
+                  <span class="detail-label">Quantité totale:</span>
+                  <span class="detail-value">{{ selectedPlat.poidsTotalPlat }} kg</span>
+                </div>
+                <div class="plat-detail-row">
+                  <span class="detail-label">Protéines par kg:</span>
+                  <span class="detail-value">{{ selectedPlat.proteinesParKgPlat }} g</span>
+                </div>
+                <div class="plat-detail-row">
+                  <span class="detail-label">Glucides par kg:</span>
+                  <span class="detail-value">{{ selectedPlat.glucidesParKgPlat }} g</span>
+                </div>
+                <div class="plat-detail-row">
+                  <span class="detail-label">Coût total:</span>
+                  <span class="detail-value">{{ selectedPlat.coutTotalPlat }} MGA</span>
+                </div>
+              </div>
+              
+              <!-- Composition du plat -->
+              <div v-if="selectedPlat.compositions && selectedPlat.compositions.length > 0" class="composition-section">
+                <h5>Composition:</h5>
+                <div class="composition-list">
+                  <div v-for="comp in selectedPlat.compositions" :key="comp.idCompositionPlat" class="composition-item">
+                    <span class="composition-name">{{ comp.nomAliment }}</span>
+                    <span class="composition-quantity">{{ comp.poidsAlimentComposition }} kg</span>
+                    <span class="composition-cost">{{ comp.coutAlimentComposition }} MGA</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Sélection d'ALIMENT (section existante de Nourrissage.vue) -->
+          <div v-else-if="modeNourrissage === 'aliment'" class="food-section">
+            <h3>2. Sélectionnez l'aliment</h3>
             <div class="aliment-options">
               <div v-for="aliment in aliments" :key="aliment.idAliment" 
                    class="aliment-option" 
                    :class="{ selected: selectedAlimentId === aliment.idAliment }"
                    @click="selectAliment(aliment)">
-                <div class="aliment-icon">🍽️</div>
+                <div class="aliment-icon">🥫</div>
                 <div class="aliment-info">
                   <h4>{{ aliment.nomAliment }}</h4>
                   <div class="aliment-details">
-                    <span class="nutrient protein">P: {{ aliment.proteinesParKgAliment }}g/kg</span>
-                    <span class="nutrient carbs">G: {{ aliment.glucidesParKgAliment }}g/kg</span>
-                    <span class="nutrient lipid">L: {{ aliment.lipidesParKgAliment || 5 }}g/kg</span>
-                    <span class="nutrient vitamin">V: {{ aliment.vitaminesParKgAliment || 0.5 }}g/kg</span>
-                    <span>Stock: {{ formatStock(aliment.stockAliment) }} kg</span>
+                    <span>Protéines: {{ aliment.proteinesParKgAliment }} g/kg</span>
+                    <span>Glucides: {{ aliment.glucidesParKgAliment }} g/kg</span>
+                    <span>Stock: {{ aliment.stockAliment }} kg</span>
                   </div>
                 </div>
-                <div class="aliment-price">{{ formatPrice(aliment.prixKgAliment) }} MGA/kg</div>
-                <div class="aliment-quality" :class="getAlimentQualityClass(aliment)">
-                  {{ getAlimentQualityText(aliment) }}
-                </div>
+                <div class="aliment-price">{{ aliment.prixKgAliment }} MGA/kg</div>
               </div>
             </div>
             
@@ -62,14 +169,6 @@
                   <input type="number" v-model="customAliment.glucidesParKg" min="0" step="0.1">
                 </div>
                 <div class="input-group">
-                  <label>Lipides (g/kg)</label>
-                  <input type="number" v-model="customAliment.lipidesParKg" min="0" step="0.1" value="5">
-                </div>
-                <div class="input-group">
-                  <label>Vitamines (g/kg)</label>
-                  <input type="number" v-model="customAliment.vitaminesParKg" min="0" step="0.01" value="0.5">
-                </div>
-                <div class="input-group">
                   <label>Prix (MGA/kg)</label>
                   <input type="number" v-model="customAliment.prixParKg" min="0" step="100">
                 </div>
@@ -81,18 +180,22 @@
             </button>
           </div>
 
-          <!-- Quantité et calculs -->
+          <!-- Quantité et calculs (COMMUN aux deux modes) -->
           <div class="quantity-section">
-            <h3>2. Définissez la quantité</h3>
+            <h3>3. Définissez la quantité</h3>
             <div class="quantity-control">
-              <label>Quantité de plat (kg)</label>
+              <label>Quantité à utiliser (kg)</label>
               <div class="quantity-input-group">
                 <button @click="decrementQuantity" class="btn-quantity" :disabled="quantitePlat <= 0.1">-</button>
                 <input type="number" v-model="quantitePlat" min="0.1" step="0.1" 
                        :max="maxQuantite" @input="updateCalculs">
                 <button @click="incrementQuantity" class="btn-quantity" :disabled="quantitePlat >= maxQuantite">+</button>
                 <span class="quantity-unit">kg</span>
+                <div class="quantity-info">
+                  <small>Valeur actuelle: {{ quantitePlat }} kg ({{ quantitePlat * 1000 }} g)</small>
+                </div>
               </div>
+              
               <div class="quantity-slider">
                 <input type="range" v-model="quantitePlat" :min="0.1" :max="maxQuantite" 
                        step="0.1" @input="updateCalculs" class="slider">
@@ -104,36 +207,25 @@
               </div>
             </div>
 
-            <!-- Calculs nutritionnels complets -->
+            <!-- Calculs nutritionnels -->
             <div class="calculations-section">
-              <h4>Calculs nutritionnels complets</h4>
+              <h4>Calculs nutritionnels</h4>
               <div class="calculations-grid">
                 <div class="calc-item">
                   <span class="calc-label">Protéines totales:</span>
-                  <span class="calc-value protein">{{ proteinesTotales.toFixed(1) }} g</span>
+                  <span class="calc-value">{{ proteinesTotales.toFixed(1) }} g</span>
                 </div>
                 <div class="calc-item">
                   <span class="calc-label">Glucides totales:</span>
-                  <span class="calc-value carbs">{{ glucidesTotales.toFixed(1) }} g</span>
-                </div>
-                <div class="calc-item">
-                  <span class="calc-label">Lipides totales:</span>
-                  <span class="calc-value lipid">{{ lipidesTotales.toFixed(1) }} g</span>
-                </div>
-                <div class="calc-item">
-                  <span class="calc-label">Vitamines totales:</span>
-                  <span class="calc-value vitamin">{{ vitaminesTotales.toFixed(2) }} g</span>
+                  <span class="calc-value">{{ glucidesTotales.toFixed(1) }} g</span>
                 </div>
                 <div class="calc-item">
                   <span class="calc-label">Par poisson:</span>
-                  <span class="calc-value small">
-                    P:{{ proteinesParPoisson.toFixed(1) }}g G:{{ glucidesParPoisson.toFixed(1) }}g
-                    L:{{ lipidesParPoisson.toFixed(1) }}g V:{{ vitaminesParPoisson.toFixed(2) }}g
-                  </span>
+                  <span class="calc-value">{{ proteinesParPoisson.toFixed(1) }}g P / {{ glucidesParPoisson.toFixed(1) }}g G</span>
                 </div>
                 <div class="calc-item">
                   <span class="calc-label">Coût total:</span>
-                  <span class="calc-value price">{{ coutTotal }} MGA</span>
+                  <span class="calc-value">{{ coutTotal }} MGA</span>
                 </div>
               </div>
             </div>
@@ -148,7 +240,7 @@
                     <span class="gain-value">{{ scenario.gain }} g/poisson</span>
                   </div>
                   <div class="gain-details">
-                    <span>P:{{ scenario.proteines }}g G:{{ scenario.glucides }}g L:{{ scenario.lipides }}g V:{{ scenario.vitamines }}g</span>
+                    <span>{{ scenario.proteines }}g P + {{ scenario.glucides }}g G</span>
                   </div>
                 </div>
               </div>
@@ -161,7 +253,7 @@
 
           <!-- Distribution -->
           <div class="distribution-section">
-            <h3>3. Mode de distribution</h3>
+            <h3>4. Mode de distribution</h3>
             <div class="distribution-options">
               <div class="distribution-option" 
                    :class="{ selected: distributionMode === 'equitable' }"
@@ -199,7 +291,7 @@
           <div class="action-section">
             <button @click="executerNourrissage" :disabled="!canNourrir || loading" class="btn-nourrir">
               <span v-if="loading" class="spinner"></span>
-              {{ loading ? 'Nourrissage en cours...' : `Nourrir ${stats.poissonsAffames} poissons` }}
+              {{ loading ? 'Nourrissage en cours...' : getActionButtonText() }}
             </button>
             <div class="validation-message" :class="validationClass">
               {{ validationMessage }}
@@ -208,11 +300,11 @@
         </div>
       </div>
 
-      <!-- Panneau de visualisation -->
+      <!-- Panneau de visualisation (inchangé) -->
       <div class="visualization-section">
-        <!-- Résumé nutritionnel complet -->
+        <!-- Résumé nutritionnel -->
         <div class="card">
-          <h2>Résumé nutritionnel complet</h2>
+          <h2>Résumé nutritionnel</h2>
           <div class="nutrition-summary">
             <div class="satisfaction-meters">
               <div class="meter">
@@ -221,10 +313,11 @@
                   <span class="meter-value">{{ satisfaction.proteines }}%</span>
                 </div>
                 <div class="meter-bar">
-                  <div class="meter-fill protein" :style="{ width: Math.min(satisfaction.proteines, 100) + '%' }"></div>
+                  <div class="meter-fill" :style="{ width: satisfaction.proteines + '%' }"
+                       :class="getSatisfactionClass(satisfaction.proteines)"></div>
                 </div>
                 <div class="meter-details">
-                  {{ proteinesParPoisson.toFixed(1) }}g / 2g besoins
+                  {{ proteinesParPoisson.toFixed(1) }}g reçus / 2g besoins
                 </div>
               </div>
               
@@ -234,36 +327,11 @@
                   <span class="meter-value">{{ satisfaction.glucides }}%</span>
                 </div>
                 <div class="meter-bar">
-                  <div class="meter-fill carbs" :style="{ width: Math.min(satisfaction.glucides, 100) + '%' }"></div>
+                  <div class="meter-fill" :style="{ width: satisfaction.glucides + '%' }"
+                       :class="getSatisfactionClass(satisfaction.glucides)"></div>
                 </div>
                 <div class="meter-details">
-                  {{ glucidesParPoisson.toFixed(1) }}g / 4g besoins
-                </div>
-              </div>
-              
-              <div class="meter">
-                <div class="meter-header">
-                  <span class="meter-label">Lipides</span>
-                  <span class="meter-value">{{ satisfaction.lipides }}%</span>
-                </div>
-                <div class="meter-bar">
-                  <div class="meter-fill lipid" :style="{ width: Math.min(satisfaction.lipides, 100) + '%' }"></div>
-                </div>
-                <div class="meter-details">
-                  {{ lipidesParPoisson.toFixed(1) }}g / 1g besoins
-                </div>
-              </div>
-              
-              <div class="meter">
-                <div class="meter-header">
-                  <span class="meter-label">Vitamines</span>
-                  <span class="meter-value">{{ satisfaction.vitamines }}%</span>
-                </div>
-                <div class="meter-bar">
-                  <div class="meter-fill vitamin" :style="{ width: Math.min(satisfaction.vitamines, 100) + '%' }"></div>
-                </div>
-                <div class="meter-details">
-                  {{ vitaminesParPoisson.toFixed(2) }}g / 0.5g besoins
+                  {{ glucidesParPoisson.toFixed(1) }}g reçus / 4g besoins
                 </div>
               </div>
             </div>
@@ -278,26 +346,20 @@
               <div class="overall-message">
                 {{ getSatisfactionMessage(satisfaction.moyenne) }}
               </div>
-              <div class="overall-status" v-if="satisfaction.tousSatisfaits">
-                ✅ Tous les besoins nutritionnels sont satisfaits
-              </div>
-              <div class="overall-status warning" v-else>
-                ⚠️ Certains besoins ne sont pas entièrement satisfaits
-              </div>
             </div>
           </div>
         </div>
 
         <!-- Prévisions de gain -->
         <div class="card">
-          <h2>Prévisions de gain complet</h2>
+          <h2>Prévisions de gain</h2>
           <div class="gain-predictions">
             <div class="prediction-chart">
               <div class="chart-bars">
                 <div v-for="(gain, index) in gainsParPoisson" :key="index" class="chart-bar-container">
-                  <div class="chart-bar" :style="{ height: (gain / 25 * 100) + '%' }"
+                  <div class="chart-bar" :style="{ height: (gain / 20 * 100) + '%' }"
                        :class="getGainClass(gain)">
-                    <span class="bar-value">{{ gain.toFixed(1) }}g</span>
+                    <span class="bar-value">{{ gain }}g</span>
                   </div>
                   <div class="bar-label">P{{ index + 1 }}</div>
                 </div>
@@ -307,19 +369,19 @@
             <div class="prediction-stats">
               <div class="stat-item">
                 <span class="stat-label">Gain minimum:</span>
-                <span class="stat-value">{{ gainMin.toFixed(1) }} g</span>
+                <span class="stat-value">{{ gainMin }} g</span>
               </div>
               <div class="stat-item">
                 <span class="stat-label">Gain maximum:</span>
-                <span class="stat-value">{{ gainMax.toFixed(1) }} g</span>
+                <span class="stat-value">{{ gainMax }} g</span>
               </div>
               <div class="stat-item">
                 <span class="stat-label">Gain moyen:</span>
-                <span class="stat-value">{{ gainMoyen.toFixed(1) }} g</span>
+                <span class="stat-value">{{ gainMoyen }} g</span>
               </div>
               <div class="stat-item total">
                 <span class="stat-label">Gain total:</span>
-                <span class="stat-value">{{ gainTotalPrevu.toFixed(1) }} g</span>
+                <span class="stat-value">{{ gainTotalPrevu }} g</span>
               </div>
             </div>
           </div>
@@ -348,24 +410,12 @@
                   <span class="value">{{ getProgression(poisson) }}%</span>
                 </div>
               </div>
-              <div class="fish-nutrition">
-                <div class="nutrition-bars">
-                  <div class="nutrient-bar protein" :style="{ width: getNutrientPercentage(poisson, 'proteines') + '%' }"
-                       title="Protéines"></div>
-                  <div class="nutrient-bar carbs" :style="{ width: getNutrientPercentage(poisson, 'glucides') + '%' }"
-                       title="Glucides"></div>
-                  <div class="nutrient-bar lipid" :style="{ width: getNutrientPercentage(poisson, 'lipides') + '%' }"
-                       title="Lipides"></div>
-                  <div class="nutrient-bar vitamin" :style="{ width: getNutrientPercentage(poisson, 'vitamines') + '%' }"
-                       title="Vitamines"></div>
-                </div>
-              </div>
               <div class="fish-gain">
                 <div class="gain-indicator">
                   <div class="gain-bar">
                     <div class="gain-fill" :style="{ width: getAllocation(poisson) + '%' }"></div>
                   </div>
-                  <span class="gain-text">{{ getGainPrevu(poisson).toFixed(1) }}g</span>
+                  <span class="gain-text">{{ getGainPrevu(poisson) }}g</span>
                 </div>
               </div>
             </div>
@@ -424,28 +474,6 @@
             </div>
           </div>
           
-          <div class="nutrition-result">
-            <h4>📊 Apports nutritionnels</h4>
-            <div class="nutrition-grid">
-              <div class="nutrition-item protein">
-                <span class="label">Protéines</span>
-                <span class="value">{{ resultatNourrissage.proteinesTotales }}g</span>
-              </div>
-              <div class="nutrition-item carbs">
-                <span class="label">Glucides</span>
-                <span class="value">{{ resultatNourrissage.glucidesTotales }}g</span>
-              </div>
-              <div class="nutrition-item lipid">
-                <span class="label">Lipides</span>
-                <span class="value">{{ resultatNourrissage.lipidesTotales }}g</span>
-              </div>
-              <div class="nutrition-item vitamin">
-                <span class="label">Vitamines</span>
-                <span class="value">{{ resultatNourrissage.vitaminesTotales }}g</span>
-              </div>
-            </div>
-          </div>
-          
           <div class="result-details" v-if="resultatNourrissage.details">
             <h4>Détails par poisson</h4>
             <div class="details-list">
@@ -464,9 +492,6 @@
           <button @click="voirHistorique" class="btn-history">
             Voir l'historique
           </button>
-          <button @click="exporterRapport" class="btn-export">
-            📥 Exporter rapport
-          </button>
         </div>
       </div>
     </div>
@@ -475,62 +500,132 @@
 
 <script>
 import { ref, computed, onMounted, watch } from 'vue'
-import { useRouter } from 'vue-router'
-import api from '../services/api'
+import { useRouter, useRoute } from 'vue-router'
+import poissonService from '../services/poissonService'
+import nourrissageService from '../services/nourrissageService'
+import platService from '../services/platService'
 import { calculService } from '../services/calculService'
 
 export default {
-  name: 'Nourrissage',
+  name: 'NourrissageCombined',
   setup() {
     const router = useRouter()
+     const route = useRoute()
     
     // Données
     const aliments = ref([])
+    const platsDisponibles = ref([])
     const poissonsAffames = ref([])
     const stats = ref({})
     const loading = ref(false)
     const resultatNourrissage = ref(null)
+
+     // Récupérer l'ID et le nom du bassin depuis les query params
+    const bassinId = ref(null)
+    const bassinNom = ref('')
+
+    // Initialiser les paramètres du bassin
+    onMounted(() => {
+      if (route.query.bassinId) {
+        bassinId.value = route.query.bassinId
+        bassinNom.value = route.query.bassinNom || ''
+      }
+    })
     
     // Sélections
+    const modeNourrissage = ref('aliment') // 'aliment' ou 'plat'
     const selectedAlimentId = ref(null)
+    const selectedPlatId = ref(null)
     const showCustomAliment = ref(false)
-    const quantitePlat = ref(0.5) // 500g par défaut
+    const quantitePlat = ref(0.1) // 500g par défaut
     const distributionMode = ref('equitable')
+   
     
     // Aliment personnalisé
     const customAliment = ref({
       proteinesParKg: 10,
       glucidesParKg: 10,
-      lipidesParKg: 5,
-      vitaminesParKg: 0.5,
       prixParKg: 2000
     })
     
     // Charger les données
-    const loadData = async () => {
+   const loadData = async () => {
       try {
         // Charger les aliments
-        const response = await api.get('/aliments')
-        aliments.value = response.data
-        if (aliments.value.length > 0) {
-          selectedAlimentId.value = aliments.value[0].idAliment
+        const alimentsData = await nourrissageService.getAliments()
+        aliments.value = alimentsData
+        if (alimentsData.length > 0 && modeNourrissage.value === 'aliment') {
+          selectedAlimentId.value = alimentsData[0].idAliment
         }
         
-        // Charger les poissons affamés
-        const poissonsResponse = await api.get('/poissons/affames')
-        poissonsAffames.value = poissonsResponse.data
+        // Charger les plats disponibles
+        const platsData = await platService.getPlatsDisponibles()
+        platsDisponibles.value = platsData
+        if (platsData.length > 0 && modeNourrissage.value === 'plat') {
+          selectedPlatId.value = platsData[0].idPlat
+        }
         
-        // Charger les statistiques
-        const statsResponse = await api.get('/poissons/statistiques')
-        stats.value = statsResponse.data
+        // MODIFIÉ : Charger les poissons selon le bassin ou tous
+        let poissonsData
+        if (bassinId.value) {
+          // Option 1: Récupérer les poissons du bassin spécifique
+          try {
+            poissonsData = await poissonService.getPoissonsByBassin(bassinId.value)
+          } catch (error) {
+            console.warn('Méthode getPoissonsByBassin non disponible, fallback sur getPoissonsAffames:', error)
+            // Fallback: Récupérer tous les poissons affamés
+            poissonsData = await poissonService.getPoissonsAffames()
+            // Puis filtrer localement (moins efficace mais fonctionnel)
+            // Note: Cette approche nécessite que les poissons aient un champ bassinId
+            // Si non, on ne peut pas filtrer côté frontend
+          }
+        } else {
+          // Charger tous les poissons affamés
+          poissonsData = await poissonService.getPoissonsAffames()
+        }
+        
+        // MODIFIÉ : Filtrer les poissons affamés et appartenant au bassin si spécifié
+        poissonsAffames.value = poissonsData.filter(poisson => {
+          // Vérifier si le poisson est affamé
+          const estAffame = !poisson.estRassasiePoisson && 
+                           !poisson.estVenduPoisson && 
+                           poisson.estEnViePoisson
+          
+          // Si un bassin est spécifié, vérifier que le poisson appartient à ce bassin
+          if (bassinId.value) {
+            // Vérifier selon la structure de données
+            const poissonBassinId = poisson.piscineActuelle?.idPiscine || 
+                                    poisson.idPiscine || 
+                                    poisson.bassinId
+            
+            return estAffame && (poissonBassinId == bassinId.value)
+          }
+          
+          return estAffame
+        })
+        
+        // MODIFIÉ : Mettre à jour les statistiques avec info bassin
+        const statsData = await poissonService.getStatistiques()
+        stats.value = {
+          ...statsData,
+          poissonsAffames: poissonsAffames.value.length,
+          bassinId: bassinId.value,
+          bassinNom: bassinNom.value || (bassinId.value ? `Bassin ${bassinId.value}` : '')
+        }
+        
+        // Mettre à jour le titre de la page
+        if (bassinId.value) {
+          document.title = `Nourrissage - ${bassinNom.value || 'Bassin ' + bassinId.value}`
+        }
         
       } catch (error) {
         console.error('Erreur chargement données:', error)
         alert('Impossible de charger les données')
       }
     }
+
     
-    // Aliment sélectionné
+    // Aliment ou Plat sélectionné
     const selectedAliment = computed(() => {
       if (showCustomAliment.value) {
         return customAliment.value
@@ -538,59 +633,60 @@ export default {
       return aliments.value.find(a => a.idAliment === selectedAlimentId.value)
     })
     
-    // Quantité maximale
-    const maxQuantite = computed(() => {
-      if (!selectedAliment.value || showCustomAliment.value) return 10
-      return Math.min(selectedAliment.value.stockAliment || 0, 10)
+    const selectedPlat = computed(() => {
+      return platsDisponibles.value.find(p => p.idPlat === selectedPlatId.value)
     })
     
-    // Calculs nutritionnels complets
+    // Nutriments selon le mode
+    const currentNutriments = computed(() => {
+      if (modeNourrissage.value === 'plat' && selectedPlat.value) {
+        return {
+          proteinesParKg: selectedPlat.value.proteinesParKgPlat,
+          glucidesParKg: selectedPlat.value.glucidesParKgPlat,
+          prixParKg: selectedPlat.value.coutTotalPlat / selectedPlat.value.poidsTotalPlat
+        }
+      } else if (modeNourrissage.value === 'aliment' && selectedAliment.value) {
+        return {
+          proteinesParKg: selectedAliment.value.proteinesParKgAliment,
+          glucidesParKg: selectedAliment.value.glucidesParKgAliment,
+          prixParKg: selectedAliment.value.prixKgAliment
+        }
+      }
+      return { proteinesParKg: 0, glucidesParKg: 0, prixParKg: 0 }
+    })
+    
+    // Quantité maximale
+    const maxQuantite = computed(() => {
+      if (modeNourrissage.value === 'plat' && selectedPlat.value) {
+        return selectedPlat.value.poidsTotalPlat
+      } else if (modeNourrissage.value === 'aliment' && selectedAliment.value) {
+        if (showCustomAliment.value) return 10
+        return Math.min(selectedAliment.value.stockAliment, 10)
+      }
+      return 10
+    })
+    
+    // Calculs nutritionnels
     const proteinesTotales = computed(() => {
-      if (!selectedAliment.value || quantitePlat.value <= 0) return 0
-      const apports = calculService.calculerApportsTotaux(
+      if (quantitePlat.value <= 0) return 0
+      const nutriments = currentNutriments.value
+      const { proteinesTotal } = calculService.calculerApportsTotaux(
         quantitePlat.value,
-        selectedAliment.value.proteinesParKg || selectedAliment.value.proteinesParKgAliment,
-        selectedAliment.value.glucidesParKg || selectedAliment.value.glucidesParKgAliment,
-        selectedAliment.value.lipidesParKg || selectedAliment.value.lipidesParKgAliment || 5,
-        selectedAliment.value.vitaminesParKg || selectedAliment.value.vitaminesParKgAliment || 0.5
+        nutriments.proteinesParKg,
+        nutriments.glucidesParKg
       )
-      return apports.proteinesTotal
+      return proteinesTotal
     })
     
     const glucidesTotales = computed(() => {
-      if (!selectedAliment.value || quantitePlat.value <= 0) return 0
-      const apports = calculService.calculerApportsTotaux(
+      if (quantitePlat.value <= 0) return 0
+      const nutriments = currentNutriments.value
+      const { glucidesTotal } = calculService.calculerApportsTotaux(
         quantitePlat.value,
-        selectedAliment.value.proteinesParKg || selectedAliment.value.proteinesParKgAliment,
-        selectedAliment.value.glucidesParKg || selectedAliment.value.glucidesParKgAliment,
-        selectedAliment.value.lipidesParKg || selectedAliment.value.lipidesParKgAliment || 5,
-        selectedAliment.value.vitaminesParKg || selectedAliment.value.vitaminesParKgAliment || 0.5
+        nutriments.proteinesParKg,
+        nutriments.glucidesParKg
       )
-      return apports.glucidesTotal
-    })
-    
-    const lipidesTotales = computed(() => {
-      if (!selectedAliment.value || quantitePlat.value <= 0) return 0
-      const apports = calculService.calculerApportsTotaux(
-        quantitePlat.value,
-        selectedAliment.value.proteinesParKg || selectedAliment.value.proteinesParKgAliment,
-        selectedAliment.value.glucidesParKg || selectedAliment.value.glucidesParKgAliment,
-        selectedAliment.value.lipidesParKg || selectedAliment.value.lipidesParKgAliment || 5,
-        selectedAliment.value.vitaminesParKg || selectedAliment.value.vitaminesParKgAliment || 0.5
-      )
-      return apports.lipidesTotal || 0
-    })
-    
-    const vitaminesTotales = computed(() => {
-      if (!selectedAliment.value || quantitePlat.value <= 0) return 0
-      const apports = calculService.calculerApportsTotaux(
-        quantitePlat.value,
-        selectedAliment.value.proteinesParKg || selectedAliment.value.proteinesParKgAliment,
-        selectedAliment.value.glucidesParKg || selectedAliment.value.glucidesParKgAliment,
-        selectedAliment.value.lipidesParKg || selectedAliment.value.lipidesParKgAliment || 5,
-        selectedAliment.value.vitaminesParKg || selectedAliment.value.vitaminesParKgAliment || 0.5
-      )
-      return apports.vitaminesTotal || 0
+      return glucidesTotal
     })
     
     // Par poisson
@@ -604,33 +700,19 @@ export default {
       return glucidesTotales.value / stats.value.poissonsAffames
     })
     
-    const lipidesParPoisson = computed(() => {
-      if (stats.value.poissonsAffames === 0) return 0
-      return lipidesTotales.value / stats.value.poissonsAffames
-    })
-    
-    const vitaminesParPoisson = computed(() => {
-      if (stats.value.poissonsAffames === 0) return 0
-      return vitaminesTotales.value / stats.value.poissonsAffames
-    })
-    
-    // Satisfaction complète
+    // Satisfaction
     const satisfaction = computed(() => {
-      return calculService.calculerSatisfactionComplet(
+      return calculService.calculerSatisfaction(
         proteinesParPoisson.value,
-        glucidesParPoisson.value,
-        lipidesParPoisson.value,
-        vitaminesParPoisson.value
+        glucidesParPoisson.value
       )
     })
     
-    // Gain par poisson (complet)
+    // Gain par poisson
     const gainParPoisson = computed(() => {
-      return calculService.calculerGainPoidsComplet(
+      return calculService.calculerGainPoids(
         proteinesParPoisson.value,
-        glucidesParPoisson.value,
-        lipidesParPoisson.value,
-        vitaminesParPoisson.value
+        glucidesParPoisson.value
       )
     })
     
@@ -641,17 +723,22 @@ export default {
     
     // Coût total
     const coutTotal = computed(() => {
-      if (!selectedAliment.value) return 0
-      const prix = selectedAliment.value.prixParKg || selectedAliment.value.prixKgAliment
-      return calculService.calculerCoutNourrissage(quantitePlat.value, prix)
+      if (!currentNutriments.value) return 0
+      return calculService.calculerCoutNourrissage(
+        quantitePlat.value,
+        currentNutriments.value.prixParKg
+      )
     })
     
-    // Total nutriments
-    const calculateTotalNutrients = () => {
-      return (proteinesTotales.value + glucidesTotales.value + lipidesTotales.value + vitaminesTotales.value).toFixed(1)
-    }
+    // Besoins totaux
+    const besoinTotal = computed(() => {
+      // 2g protéines + 4g glucides = 6g par poisson
+      // Pour 5g de plat
+      const besoinParPoisson = 5 // g de plat
+      return stats.value.poissonsAffames * besoinParPoisson
+    })
     
-    // Scénarios de gain complets
+    // Scénarios de gain
     const scenariosGain = computed(() => {
       return [
         {
@@ -659,36 +746,28 @@ export default {
           title: 'Minimum',
           proteines: 2,
           glucides: 0,
-          lipides: 0,
-          vitamines: 0,
-          gain: calculService.calculerGainPoidsComplet(2, 0, 0, 0)
+          gain: 5
         },
         {
           id: 2,
-          title: 'Basique',
+          title: 'Intermédiaire',
           proteines: 2,
           glucides: 4,
-          lipides: 0,
-          vitamines: 0,
-          gain: calculService.calculerGainPoidsComplet(2, 4, 0, 0)
+          gain: 10
         },
         {
           id: 3,
-          title: 'Équilibré',
-          proteines: 2,
+          title: 'Bon',
+          proteines: 4,
           glucides: 4,
-          lipides: 1,
-          vitamines: 0.5,
-          gain: calculService.calculerGainPoidsComplet(2, 4, 1, 0.5)
+          gain: 15
         },
         {
           id: 4,
           title: 'Optimal',
           proteines: 4,
           glucides: 8,
-          lipides: 2,
-          vitamines: 1,
-          gain: calculService.calculerGainPoidsComplet(4, 8, 2, 1)
+          gain: 20
         }
       ]
     })
@@ -703,29 +782,36 @@ export default {
     })
     
     const gainMin = computed(() => {
-      return stats.value.poissonsAffames * scenariosGain.value[0].gain
+      return stats.value.poissonsAffames * 5
     })
     
     const gainMax = computed(() => {
-      return stats.value.poissonsAffames * scenariosGain.value[3].gain
+      return stats.value.poissonsAffames * 20
     })
     
     const gainMoyen = computed(() => {
-      return gainTotalPrevu.value
+      return stats.value.poissonsAffames * gainParPoisson.value
     })
     
     // Validation
     const canNourrir = computed(() => {
       return quantitePlat.value > 0 &&
              stats.value.poissonsAffames > 0 &&
-             selectedAliment.value &&
-             quantitePlat.value <= maxQuantite.value
+             quantitePlat.value <= maxQuantite.value &&
+             ((modeNourrissage.value === 'aliment' && (selectedAliment.value || showCustomAliment.value)) ||
+              (modeNourrissage.value === 'plat' && selectedPlat.value))
     })
     
     const validationMessage = computed(() => {
       if (stats.value.poissonsAffames === 0) return 'Aucun poisson affamé à nourrir'
       if (quantitePlat.value <= 0) return 'Veuillez saisir une quantité valide'
-      if (!selectedAliment.value) return 'Veuillez sélectionner un aliment'
+      
+      if (modeNourrissage.value === 'plat') {
+        if (!selectedPlat.value) return 'Veuillez sélectionner un plat'
+      } else {
+        if (!selectedAliment.value && !showCustomAliment.value) return 'Veuillez sélectionner un aliment'
+      }
+      
       if (quantitePlat.value > maxQuantite.value) {
         return `Quantité maximale: ${maxQuantite.value} kg`
       }
@@ -737,118 +823,16 @@ export default {
       return 'success'
     })
     
-    // Méthodes utilitaires
-    const formatStock = (stock) => {
-      if (!stock && stock !== 0) return '0.00'
-      return parseFloat(stock).toFixed(2)
-    }
-    
-    const formatPrice = (price) => {
-      if (!price && price !== 0) return '0'
-      return parseFloat(price).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
-    }
-    
-    const formatPoids = (poids) => {
-      return poids ? Math.round(poids * 100) / 100 : 0
-    }
-    
-    const getAlimentQualityClass = (aliment) => {
-      const analysis = calculService.evaluerQualiteAliment({
-        proteinesParKg: aliment.proteinesParKgAliment,
-        glucidesParKg: aliment.glucidesParKgAliment,
-        lipidesParKg: aliment.lipidesParKgAliment || 5,
-        vitaminesParKg: aliment.vitaminesParKgAliment || 0.5
-      })
-      
-      if (analysis.score >= 90) return 'excellent'
-      if (analysis.score >= 75) return 'good'
-      if (analysis.score >= 50) return 'medium'
-      return 'low'
-    }
-    
-    const getAlimentQualityText = (aliment) => {
-      const analysis = calculService.evaluerQualiteAliment({
-        proteinesParKg: aliment.proteinesParKgAliment,
-        glucidesParKg: aliment.glucidesParKgAliment,
-        lipidesParKg: aliment.lipidesParKgAliment || 5,
-        vitaminesParKg: aliment.vitaminesParKgAliment || 0.5
-      })
-      return analysis.qualite
-    }
-    
-    const getProgression = (poisson) => {
-      if (!poisson.poidsActuelPoisson || !poisson.poidsMaximalPoisson) return 0
-      return Math.round((poisson.poidsActuelPoisson / poisson.poidsMaximalPoisson) * 100)
-    }
-    
-    const getNutrientPercentage = (poisson, nutrient) => {
-      const besoins = {
-        proteines: 2,
-        glucides: 4,
-        lipides: 1,
-        vitamines: 0.5
-      }
-      
-      const recu = {
-        proteines: proteinesParPoisson.value,
-        glucides: glucidesParPoisson.value,
-        lipides: lipidesParPoisson.value,
-        vitamines: vitaminesParPoisson.value
-      }
-      
-      return Math.min((recu[nutrient] / besoins[nutrient]) * 100, 100)
-    }
-    
-    const getAllocation = (poisson) => {
-      switch (distributionMode.value) {
-        case 'proportionnel':
-          const totalPoids = poissonsAffames.value.reduce((sum, p) => sum + (p.poidsActuelPoisson || 0), 0)
-          return totalPoids > 0 ? ((poisson.poidsActuelPoisson || 0) / totalPoids) * 100 : 100 / poissonsAffames.value.length
-        default:
-          return 100 / poissonsAffames.value.length
-      }
-    }
-    
-    const getGainPrevu = (poisson) => {
-      const allocation = getAllocation(poisson) / 100
-      const proteinesAllouees = proteinesTotales.value * allocation
-      const glucidesAlloues = glucidesTotales.value * allocation
-      const lipidesAlloues = lipidesTotales.value * allocation
-      const vitaminesAllouees = vitaminesTotales.value * allocation
-      
-      return calculService.calculerGainPoidsComplet(
-        proteinesAllouees,
-        glucidesAlloues,
-        lipidesAlloues,
-        vitaminesAllouees
-      )
-    }
-    
-    const getOverallClass = (pourcentage) => {
-      if (pourcentage >= 100) return 'excellent'
-      if (pourcentage >= 80) return 'good'
-      if (pourcentage >= 50) return 'medium'
-      return 'low'
-    }
-    
-    const getSatisfactionMessage = (pourcentage) => {
-      if (pourcentage >= 100) return 'Tous les besoins sont satisfaits'
-      if (pourcentage >= 80) return 'Besoins presque satisfaits'
-      if (pourcentage >= 50) return 'Besoins partiellement satisfaits'
-      return 'Besoins insuffisants'
-    }
-    
-    const getGainClass = (gain) => {
-      if (gain >= 20) return 'high'
-      if (gain >= 15) return 'medium-high'
-      if (gain >= 10) return 'medium'
-      if (gain >= 5) return 'low'
-      return 'very-low'
-    }
-    
-    // Méthodes d'interaction
+    // Méthodes
     const selectAliment = (aliment) => {
       selectedAlimentId.value = aliment.idAliment
+      showCustomAliment.value = false
+      selectedPlatId.value = null
+    }
+    
+    const selectPlat = (plat) => {
+      selectedPlatId.value = plat.idPlat
+      selectedAlimentId.value = null
       showCustomAliment.value = false
     }
     
@@ -856,6 +840,7 @@ export default {
       showCustomAliment.value = !showCustomAliment.value
       if (showCustomAliment.value) {
         selectedAlimentId.value = null
+        selectedPlatId.value = null
       }
     }
     
@@ -877,52 +862,142 @@ export default {
       quantitePlat.value = Math.max(0.1, Math.min(quantitePlat.value, maxQuantite.value))
     }
     
-    // Exécuter le nourrissage
-    const executerNourrissage = async () => {
-      if (!canNourrir.value) return
-      
-      loading.value = true
-      try {
-        const alimentData = showCustomAliment.value ? customAliment.value : selectedAliment.value
-        
-        const result = await api.post('/nourrissage/nourrir', null, {
-          params: {
-            quantitePlat: quantitePlat.value,
-            proteinesParKg: alimentData.proteinesParKg || alimentData.proteinesParKgAliment,
-            glucidesParKg: alimentData.glucidesParKg || alimentData.glucidesParKgAliment,
-            lipidesParKg: alimentData.lipidesParKg || alimentData.lipidesParKgAliment || 5,
-            vitaminesParKg: alimentData.vitaminesParKg || alimentData.vitaminesParKgAliment || 0.5
-          }
-        })
-        
-        // Afficher le résultat
-        resultatNourrissage.value = {
-          message: `Nourrissage réussi ! ${result.data.message || ''}`,
-          poissonsNourris: stats.value.poissonsAffames,
-          nourritureUtilisee: quantitePlat.value,
-          gainTotal: gainTotalPrevu.value,
-          coutTotal: coutTotal.value,
-          proteinesTotales: proteinesTotales.value.toFixed(1),
-          glucidesTotales: glucidesTotales.value.toFixed(1),
-          lipidesTotales: lipidesTotales.value.toFixed(1),
-          vitaminesTotales: vitaminesTotales.value.toFixed(2),
-          details: poissonsAffames.value.map(p => ({
-            id: p.idPoisson,
-            nom: p.nomPoisson,
-            gain: getGainPrevu(p).toFixed(1)
-          }))
-        }
-        
-        // Recharger les données
-        await loadData()
-        
-      } catch (error) {
-        console.error('Erreur nourrissage:', error)
-        alert(error.response?.data?.message || 'Erreur lors du nourrissage')
-      } finally {
-        loading.value = false
+    const getActionButtonText = () => {
+      if (modeNourrissage.value === 'plat' && selectedPlat.value) {
+        return `Nourrir avec "${selectedPlat.value.nomPlat}"`
+      }
+      return `Nourrir ${stats.value.poissonsAffames} poissons`
+    }
+    
+    const formatPoids = (poids) => {
+      return poids ? Math.round(poids * 100) / 100 : 0
+    }
+    
+    const getProgression = (poisson) => {
+      if (!poisson.poidsActuelPoisson || !poisson.poidsMaximalPoisson) return 0
+      return Math.round((poisson.poidsActuelPoisson / poisson.poidsMaximalPoisson) * 100)
+    }
+    
+    const getAllocation = (poisson) => {
+      switch (distributionMode.value) {
+        case 'proportionnel':
+          const totalPoids = poissonsAffames.value.reduce((sum, p) => sum + p.poidsActuelPoisson, 0)
+          return totalPoids > 0 ? (poisson.poidsActuelPoisson / totalPoids) * 100 : 100 / poissonsAffames.value.length
+        default:
+          return 100 / poissonsAffames.value.length
       }
     }
+    
+    const getGainPrevu = (poisson) => {
+      const allocation = getAllocation(poisson) / 100
+      const proteinesAllouees = proteinesTotales.value * allocation
+      const glucidesAlloues = glucidesTotales.value * allocation
+      return calculService.calculerGainPoids(proteinesAllouees, glucidesAlloues)
+    }
+    
+    const getSatisfactionClass = (pourcentage) => {
+      if (pourcentage >= 100) return 'excellent'
+      if (pourcentage >= 80) return 'good'
+      if (pourcentage >= 50) return 'medium'
+      return 'low'
+    }
+    
+    const getOverallClass = (pourcentage) => {
+      if (pourcentage >= 100) return 'excellent'
+      if (pourcentage >= 80) return 'good'
+      if (pourcentage >= 50) return 'medium'
+      return 'low'
+    }
+    
+    const getSatisfactionMessage = (pourcentage) => {
+      if (pourcentage >= 100) return 'Tous les besoins sont satisfaits'
+      if (pourcentage >= 80) return 'Besoins presque satisfaits'
+      if (pourcentage >= 50) return 'Besoins partiellement satisfaits'
+      return 'Besoins insuffisants'
+    }
+    
+    const getGainClass = (gain) => {
+      if (gain >= 15) return 'high'
+      if (gain >= 10) return 'medium'
+      if (gain >= 5) return 'low'
+      return 'very-low'
+    }
+    
+    // Exécuter le nourrissage
+const executerNourrissage = async () => {
+  if (!canNourrir.value) return
+  
+  loading.value = true
+  try {
+    let result
+    
+    if (modeNourrissage.value === 'plat' && selectedPlat.value) {
+      // Nourrir avec un plat
+      console.log('Nourrissage avec plat:', selectedPlat.value.idPlat)
+      result = await nourrissageService.nourrirAvecPlat(selectedPlat.value.idPlat)
+      
+    } else if (modeNourrissage.value === 'aliment') {
+      // Nourrir avec un aliment (personnalisé ou existant)
+      const alimentData = showCustomAliment.value ? customAliment.value : selectedAliment.value
+      
+      // MODIFICATION : Utiliser la nouvelle méthode qui accepte l'ID du bassin
+      if (bassinId.value) {
+        // Nourrir uniquement les poissons du bassin spécifié
+        result = await nourrissageService.nourrirPoissonsDansBassin(
+          quantitePlat.value,
+          alimentData.proteinesParKg || alimentData.proteinesParKgAliment,
+          alimentData.glucidesParKg || alimentData.glucidesParKgAliment,
+          bassinId.value
+        )
+      } else {
+        // Nourrir tous les poissons (comportement par défaut)
+        result = await nourrissageService.nourrirPoissons(
+          quantitePlat.value,
+          alimentData.proteinesParKg || alimentData.proteinesParKgAliment,
+          alimentData.glucidesParKg || alimentData.glucidesParKgAliment
+        )
+      }
+    }
+    
+    // Personnaliser le message selon le bassin
+    let message = result.message || `Nourrissage réussi !`
+    if (bassinId.value) {
+      message = `${message} (Bassin: ${bassinNom.value || bassinId.value})`
+    }
+    
+    // Afficher le résultat
+    resultatNourrissage.value = {
+      message: message,
+      poissonsNourris: result.poissonsNourris || stats.value.poissonsAffames,
+      nourritureUtilisee: result.nourritureUtilisee || quantitePlat.value,
+      gainTotal: result.gainTotal || gainTotalPrevu.value,
+      coutTotal: result.coutTotal || coutTotal.value,
+      bassinId: bassinId.value,
+      bassinNom: bassinNom.value,
+      details: poissonsAffames.value.map(p => ({
+        id: p.idPoisson,
+        nom: p.nomPoisson,
+        gain: getGainPrevu(p)
+      }))
+    }
+    
+    if (modeNourrissage.value === 'plat' && selectedPlat.value) {
+      resultatNourrissage.value.message = `Plat "${selectedPlat.value.nomPlat}" utilisé avec succès !`
+      if (bassinId.value) {
+        resultatNourrissage.value.message += ` (Bassin: ${bassinNom.value || bassinId.value})`
+      }
+    }
+    
+    // Recharger les données
+    await loadData()
+    
+  } catch (error) {
+    console.error('Erreur nourrissage:', error)
+    alert(error.response?.data?.message || 'Erreur lors du nourrissage')
+  } finally {
+    loading.value = false
+  }
+}
     
     const fermerResultat = () => {
       resultatNourrissage.value = null
@@ -932,45 +1007,44 @@ export default {
       router.push('/historique')
     }
     
-    const exporterRapport = () => {
-      const rapport = {
-        date: new Date().toISOString(),
-        nourrissage: resultatNourrissage.value,
-        aliment: selectedAliment.value.nomAliment || 'Personnalisé',
-        parametres: {
-          quantitePlat: quantitePlat.value,
-          modeDistribution: distributionMode.value
-        },
-        poissonsNourris: stats.value.poissonsAffames
-      }
-      
-      const blob = new Blob([JSON.stringify(rapport, null, 2)], { type: 'application/json' })
-      const link = document.createElement('a')
-      link.href = URL.createObjectURL(blob)
-      link.download = `rapport_nourrissage_${new Date().toISOString().split('T')[0]}.json`
-      link.click()
-    }
-    
     // Initialisation
     onMounted(() => {
       loadData()
     })
     
     // Watchers
+    watch(modeNourrissage, (newMode) => {
+      if (newMode === 'plat' && platsDisponibles.value.length > 0) {
+        selectedPlatId.value = platsDisponibles.value[0].idPlat
+        selectedAlimentId.value = null
+      } else if (newMode === 'aliment' && aliments.value.length > 0) {
+        selectedAlimentId.value = aliments.value[0].idAliment
+        selectedPlatId.value = null
+      }
+      showCustomAliment.value = false
+      updateCalculs()
+    })
+    
     watch(quantitePlat, updateCalculs)
-    watch(distributionMode, updateCalculs)
-    watch(selectedAlimentId, updateCalculs)
+    watch(distributionMode, () => {
+      // Forcer le recalcul des allocations
+    })
     
     return {
       // Données
       aliments,
+      platsDisponibles,
       poissonsAffames,
       stats,
       loading,
       resultatNourrissage,
+      bassinId,
+      bassinNom,
       
       // Sélections
+      modeNourrissage,
       selectedAlimentId,
+      selectedPlatId,
       showCustomAliment,
       quantitePlat,
       distributionMode,
@@ -978,19 +1052,17 @@ export default {
       
       // Computed
       selectedAliment,
+      selectedPlat,
       maxQuantite,
       proteinesTotales,
       glucidesTotales,
-      lipidesTotales,
-      vitaminesTotales,
       proteinesParPoisson,
       glucidesParPoisson,
-      lipidesParPoisson,
-      vitaminesParPoisson,
       satisfaction,
       gainParPoisson,
       gainTotalPrevu,
       coutTotal,
+      besoinTotal,
       scenariosGain,
       gainsParPoisson,
       gainMin,
@@ -1001,29 +1073,25 @@ export default {
       validationClass,
       
       // Méthodes
-      loadData,
       selectAliment,
+      selectPlat,
       toggleCustomAliment,
       incrementQuantity,
       decrementQuantity,
       updateCalculs,
-      formatStock,
-      formatPrice,
+      getActionButtonText,
       formatPoids,
-      getAlimentQualityClass,
-      getAlimentQualityText,
       getProgression,
-      getNutrientPercentage,
       getAllocation,
       getGainPrevu,
+      getSatisfactionClass,
       getOverallClass,
       getSatisfactionMessage,
       getGainClass,
-      calculateTotalNutrients,
       executerNourrissage,
       fermerResultat,
       voirHistorique,
-      exporterRapport
+      loadData 
     }
   }
 }
@@ -1031,201 +1099,7 @@ export default {
 
 <style scoped>
 @import '../assets/styles/nourissage.css';
-
-/* Styles supplémentaires pour les nouveaux éléments */
-
-.aliment-details .nutrient {
-  font-size: 11px;
-  padding: 2px 6px;
-  border-radius: 4px;
-  margin-right: 4px;
-}
-
-.nutrient.protein {
-  background-color: #eff6ff;
-  color: #1d4ed8;
-}
-
-.nutrient.carbs {
-  background-color: #f0fdf4;
-  color: #047857;
-}
-
-.nutrient.lipid {
-  background-color: #fefce8;
-  color: #ca8a04;
-}
-
-.nutrient.vitamin {
-  background-color: #f5f3ff;
-  color: #7c3aed;
-}
-
-.aliment-quality {
-  font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 12px;
-  font-weight: 600;
-  margin-left: 8px;
-}
-
-.aliment-quality.excellent {
-  background-color: #dcfce7;
-  color: #166534;
-}
-
-.aliment-quality.good {
-  background-color: #fef3c7;
-  color: #92400e;
-}
-
-.aliment-quality.medium {
-  background-color: #fef3c7;
-  color: #92400e;
-}
-
-.aliment-quality.low {
-  background-color: #fee2e2;
-  color: #991b1b;
-}
-
-.calc-item .calc-value.small {
-  font-size: 11px;
-}
-
-.calc-value.protein {
-  color: #1d4ed8;
-}
-
-.calc-value.carbs {
-  color: #047857;
-}
-
-.calc-value.lipid {
-  color: #ca8a04;
-}
-
-.calc-value.vitamin {
-  color: #7c3aed;
-}
-
-.calc-value.price {
-  color: #059669;
-  font-weight: 700;
-}
-
-.meter-fill.protein {
-  background-color: #3b82f6;
-}
-
-.meter-fill.carbs {
-  background-color: #10b981;
-}
-
-.meter-fill.lipid {
-  background-color: #f59e0b;
-}
-
-.meter-fill.vitamin {
-  background-color: #8b5cf6;
-}
-
-.overall-status {
-  margin-top: 10px;
-  padding: 8px 12px;
-  border-radius: 6px;
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.overall-status.warning {
-  background-color: #fef3c7;
-  color: #92400e;
-  border-left: 4px solid #f59e0b;
-}
-
-.nutrition-bars {
-  display: flex;
-  height: 4px;
-  border-radius: 2px;
-  overflow: hidden;
-  margin: 8px 0;
-}
-
-.nutrient-bar {
-  height: 100%;
-}
-
-.nutrient-bar.protein {
-  background-color: #3b82f6;
-}
-
-.nutrient-bar.carbs {
-  background-color: #10b981;
-}
-
-.nutrient-bar.lipid {
-  background-color: #f59e0b;
-}
-
-.nutrient-bar.vitamin {
-  background-color: #8b5cf6;
-}
-
-.nutrition-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
-  margin: 15px 0;
-}
-
-.nutrition-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px;
-  border-radius: 6px;
-  font-weight: 600;
-}
-
-.nutrition-item.protein {
-  background-color: #eff6ff;
-  color: #1d4ed8;
-}
-
-.nutrition-item.carbs {
-  background-color: #f0fdf4;
-  color: #047857;
-}
-
-.nutrition-item.lipid {
-  background-color: #fefce8;
-  color: #ca8a04;
-}
-
-.nutrition-item.vitamin {
-  background-color: #f5f3ff;
-  color: #7c3aed;
-}
-
-.chart-bar.high {
-  background-color: #10b981;
-}
-
-.chart-bar.medium-high {
-  background-color: #22c55e;
-}
-
-.chart-bar.medium {
-  background-color: #f59e0b;
-}
-
-.chart-bar.low {
-  background-color: #f97316;
-}
-
-.chart-bar.very-low {
-  background-color: #ef4444;
-}
 </style>
+
+
 
