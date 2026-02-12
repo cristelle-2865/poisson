@@ -1342,4 +1342,60 @@
   margin-top: 8px;
 }
 
+.btn-transfert-massif {
+  background-color: #805ad5;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-transfert-massif:hover {
+  background-color: #6b46c1;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(128, 90, 213, 0.3);
+}
+
+/* Liste des poissons dans la modale */
+.poissons-liste {
+  margin-top: 16px;
+  max-height: 200px;
+  overflow-y: auto;
+  background-color: #f7fafc;
+  border-radius: 8px;
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.poissons-liste ul {
+  list-style-type: none;
+  padding: 0;
+  margin: 8px 0 0;
+}
+
+.poissons-liste li {
+  padding: 4px 8px;
+  border-bottom: 1px solid #edf2f7;
+  font-size: 14px;
+}
+
+.poissons-liste li:last-child {
+  border-bottom: none;
+}
+
+/* Avertissement pour places insuffisantes */
+.warning-text {
+  color: #e53e3e;
+  font-size: 12px;
+  font-weight: 600;
+  margin-left: 8px;
+}
+
 
