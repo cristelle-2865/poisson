@@ -324,6 +324,7 @@ public class PlatService {
             }
         }
     }
+
     private PlatResponseDto convertToDto(Plat plat) {
         PlatResponseDto dto = new PlatResponseDto();
         dto.setIdPlat(plat.getIdPlat());
@@ -333,8 +334,18 @@ public class PlatService {
         dto.setCoutTotalPlat(plat.getCoutTotalPlat());
         dto.setProteinesTotalPlat(plat.getProteinesTotalPlat());
         dto.setGlucidesTotalPlat(plat.getGlucidesTotalPlat());
+        
+        // AJOUT : Lipides et vitamines totaux
+        dto.setLipidesTotalPlat(plat.getLipidesTotalPlat());
+        dto.setVitaminesTotalPlat(plat.getVitaminesTotalPlat());
+        
         dto.setProteinesParKgPlat(plat.getProteinesParKgPlat());
         dto.setGlucidesParKgPlat(plat.getGlucidesParKgPlat());
+        
+        // AJOUT : Lipides et vitamines par kg
+        dto.setLipidesParKgPlat(plat.getLipidesParKgPlat());
+        dto.setVitaminesParKgPlat(plat.getVitaminesParKgPlat());
+        
         dto.setDatePreparationPlat(plat.getDatePreparationPlat());
         dto.setEstUtilisePlat(plat.getEstUtilisePlat());
         dto.setDateCreationPlat(plat.getDateCreationPlat());
@@ -362,17 +373,28 @@ public class PlatService {
         compDto.setPrixKgAliment(aliment.getPrixKgAliment());
         compDto.setProteinesParKgAliment(aliment.getProteinesParKgAliment());
         compDto.setGlucidesParKgAliment(aliment.getGlucidesParKgAliment());
+        
+        // AJOUT : Lipides et vitamines par kg
+        compDto.setLipidesParKgAliment(aliment.getLipidesParKgAliment());
+        compDto.setVitaminesParKgAliment(aliment.getVitaminesParKgAliment());
+        
         compDto.setStockAliment(aliment.getStockAliment());
         
         compDto.setPoidsAlimentComposition(composition.getPoidsAlimentComposition());
         compDto.setCoutAlimentComposition(composition.getCoutAlimentComposition());
         compDto.setProteinesComposition(composition.getProteinesComposition());
         compDto.setGlucidesComposition(composition.getGlucidesComposition());
+        
+        // AJOUT : Lipides et vitamines de la composition
+        compDto.setLipidesComposition(composition.getLipidesComposition());
+        compDto.setVitaminesComposition(composition.getVitaminesComposition());
+        
         compDto.setDateCreationComposition(composition.getDateCreationComposition());
         
         return compDto;
     }
-    
+
+
     private List<PlatResponseDto> convertToDtoList(List<Plat> plats) {
         return plats.stream()
             .map(this::convertToDto)

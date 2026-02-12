@@ -5,7 +5,8 @@ import com.example.poisson.repository.AlimentRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.math.BigDecimal; 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -24,6 +25,27 @@ public class AlimentService {
     }
     
     public Aliment createAliment(Aliment aliment) {
+        // Initialiser les dates
+        aliment.setDateCreationAliment(LocalDateTime.now());
+        aliment.setDateModificationAliment(LocalDateTime.now());
+        
+        // Valeurs par défaut pour lipides et vitamines
+        if (aliment.getLipidesParKgAliment() == null) {
+            aliment.setLipidesParKgAliment(BigDecimal.valueOf(5.0));
+        }
+        if (aliment.getVitaminesParKgAliment() == null) {
+            aliment.setVitaminesParKgAliment(BigDecimal.valueOf(0.5));
+        }
+        if (aliment.getStockAliment() == null) {
+            aliment.setStockAliment(BigDecimal.ZERO);
+        }
+        if (aliment.getSeuilMinimumAliment() == null) {
+            aliment.setSeuilMinimumAliment(BigDecimal.valueOf(10));
+        }
+        if (aliment.getEstActifAliment() == null) {
+            aliment.setEstActifAliment(true);
+        }
+        
         return alimentRepository.save(aliment);
     }
     
@@ -34,8 +56,19 @@ public class AlimentService {
         aliment.setPrixKgAliment(alimentDetails.getPrixKgAliment());
         aliment.setProteinesParKgAliment(alimentDetails.getProteinesParKgAliment());
         aliment.setGlucidesParKgAliment(alimentDetails.getGlucidesParKgAliment());
+        
+        // AJOUT : Mettre à jour lipides et vitamines
+        if (alimentDetails.getLipidesParKgAliment() != null) {
+            aliment.setLipidesParKgAliment(alimentDetails.getLipidesParKgAliment());
+        }
+        if (alimentDetails.getVitaminesParKgAliment() != null) {
+            aliment.setVitaminesParKgAliment(alimentDetails.getVitaminesParKgAliment());
+        }
+        
         aliment.setStockAliment(alimentDetails.getStockAliment());
+        aliment.setSeuilMinimumAliment(alimentDetails.getSeuilMinimumAliment());
         aliment.setEstActifAliment(alimentDetails.getEstActifAliment());
+        aliment.setDateModificationAliment(LocalDateTime.now());
         
         return alimentRepository.save(aliment);
     }
@@ -48,6 +81,7 @@ public class AlimentService {
     public Aliment updateStock(Long id, BigDecimal nouvelleQuantite) {
         Aliment aliment = getAlimentById(id);
         aliment.setStockAliment(nouvelleQuantite);
+        aliment.setDateModificationAliment(LocalDateTime.now());
         return alimentRepository.save(aliment);
     }
 }

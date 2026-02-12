@@ -2,32 +2,35 @@ package com.example.poisson.model;
 
 import jakarta.persistence.*;
 import lombok.Data;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties; 
+import lombok.extern.slf4j.Slf4j;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "compositionplat")
+@Table(name = "composition_plat")
 @Data
-@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"}) 
+@Slf4j
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class CompositionPlat {
     
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id_compositionplat")
+    @Column(name = "id_composition_plat")
     private Long idCompositionPlat;
     
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_plat", nullable = false)
-    @JsonIgnoreProperties({"compositions", "hibernateLazyInitializer", "handler"}) 
+    @JsonIgnoreProperties({"compositions", "hibernateLazyInitializer", "handler"})
     private Plat plat;
     
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_aliment", nullable = false)
-    @JsonIgnoreProperties({"compositions", "hibernateLazyInitializer", "handler"}) 
+    @JsonIgnoreProperties({"compositions", "hibernateLazyInitializer", "handler"})
     private Aliment aliment;
     
-    @Column(name = "poids_aliment_composition", nullable = false, precision = 8, scale = 2)
+    @Column(name = "poids_aliment_composition", nullable = false, precision = 10, scale = 2)
     private BigDecimal poidsAlimentComposition;
     
     @Column(name = "cout_aliment_composition", precision = 10, scale = 2)
@@ -39,47 +42,47 @@ public class CompositionPlat {
     @Column(name = "glucides_composition", precision = 8, scale = 2)
     private BigDecimal glucidesComposition;
     
+    // AJOUT : Champs pour lipides et vitamines
+    @Column(name = "lipides_composition", precision = 8, scale = 2)
+    private BigDecimal lipidesComposition;
+    
+    @Column(name = "vitamines_composition", precision = 8, scale = 2)
+    private BigDecimal vitaminesComposition;
+    
     @Column(name = "date_creation_composition")
     private LocalDateTime dateCreationComposition = LocalDateTime.now();
     
-    @Column(name = "date_modification_composition")
-    private LocalDateTime dateModificationComposition = LocalDateTime.now();
-    
- 
-    @Column(name = "lipides_composition", precision = 8, scale = 2)
-    private BigDecimal lipidesComposition;
-
-    @Column(name = "vitamines_composition", precision = 8, scale = 2)
-    private BigDecimal vitaminesComposition;
-
-    // Méthode pour calculer automatiquement les valeurs
     @PrePersist
-    @PreUpdate
-    private void calculerValeurs() {
+    public void prePersist() {
         if (aliment != null && poidsAlimentComposition != null) {
-            // Calcul du coût
-            coutAlimentComposition = poidsAlimentComposition
-                .multiply(aliment.getPrixKgAliment())
-                .divide(new BigDecimal("1000"), 2, BigDecimal.ROUND_HALF_UP);
+            // Calculer le coût
+            this.coutAlimentComposition = aliment.getPrixKgAliment()
+                .multiply(poidsAlimentComposition)
+                .setScale(2, RoundingMode.HALF_UP);
             
-            // Calcul des nutriments
-            proteinesComposition = poidsAlimentComposition
-                .multiply(aliment.getProteinesParKgAliment())
-                .divide(new BigDecimal("1000"), 2, BigDecimal.ROUND_HALF_UP);
+            // Calculer les protéines (en grammes)
+            this.proteinesComposition = aliment.getProteinesParKgAliment()
+                .multiply(poidsAlimentComposition)
+                .setScale(2, RoundingMode.HALF_UP);
             
-            glucidesComposition = poidsAlimentComposition
-                .multiply(aliment.getGlucidesParKgAliment())
-                .divide(new BigDecimal("1000"), 2, BigDecimal.ROUND_HALF_UP);
-
-            lipidesComposition = poidsAlimentComposition
-            .multiply(aliment.getLipidesParKgAliment())
-            .divide(new BigDecimal("1000"), 2, BigDecimal.ROUND_HALF_UP);
-        
-            // Calcul des vitamines
-            vitaminesComposition = poidsAlimentComposition
-                .multiply(aliment.getVitaminesParKgAliment())
-                .divide(new BigDecimal("1000"), 2, BigDecimal.ROUND_HALF_UP);
+            // Calculer les glucides (en grammes)
+            this.glucidesComposition = aliment.getGlucidesParKgAliment()
+                .multiply(poidsAlimentComposition)
+                .setScale(2, RoundingMode.HALF_UP);
+            
+            // AJOUT : Calculer les lipides (en grammes)
+            this.lipidesComposition = aliment.getLipidesParKgAliment()
+                .multiply(poidsAlimentComposition)
+                .setScale(2, RoundingMode.HALF_UP);
+            
+            // AJOUT : Calculer les vitamines (en grammes)
+            this.vitaminesComposition = aliment.getVitaminesParKgAliment()
+                .multiply(poidsAlimentComposition)
+                .setScale(2, RoundingMode.HALF_UP);
         }
+        
+        this.dateCreationComposition = LocalDateTime.now();
     }
 }
+
 
