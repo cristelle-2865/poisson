@@ -81,9 +81,9 @@ export default {
       {
         title: 'Gestion',
         items: [
-          { name: 'Poissons', label: 'Poissons', icon: '🐟', badge: 42 },
-          { name: 'Bassins', label: 'Bassins', icon: '🏊', badge: 5 },
-          { name: 'Aliments', label: 'Aliments', icon: '📦', badge: 12 }
+          { name: 'Poissons', label: 'Poissons', icon: '🐟'},
+          { name: 'Bassins', label: 'Bassins', icon: '🏊' },
+          { name: 'Aliments', label: 'Aliments', icon: '📦' }
         ]
       },
       {
