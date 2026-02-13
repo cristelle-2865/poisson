@@ -213,9 +213,9 @@
                   <span class="bassin-icon">🏊</span>
                   <div>
                     <strong>{{ poisson.piscineActuelle.nomPiscine }}</strong>
-                    <small class="text-muted">
+                    <!-- <small class="text-muted">
                       {{ poisson.piscineActuelle.poissons?.length || 0 }}/{{ poisson.piscineActuelle.capaciteMaxPiscine }}
-                    </small>
+                    </small> -->
                   </div>
                 </div>
                 <span v-else class="no-bassin">❌ Sans bassin</span>
