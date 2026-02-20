@@ -1752,3 +1752,300 @@
   margin-left: 8px;
 }
 
+/* Styles pour l'affichage des pourcentages */
+.fish-list {
+  max-height: 500px;
+  overflow-y: auto;
+  padding: 0.5rem;
+}
+
+.fish-item {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  margin-bottom: 1rem;
+  padding: 1rem;
+  transition: all 0.3s ease;
+}
+
+.fish-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+  transform: translateX(5px);
+}
+
+.fish-item.highlight-proportionnel {
+  border-left: 4px solid #4a90e2;
+}
+
+.fish-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.fish-name-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.fish-name {
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: #fff;
+}
+
+.fish-race {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.percentage-badge {
+  background: #4a90e2;
+  color: white;
+  padding: 0.3rem 0.8rem;
+  border-radius: 20px;
+  font-weight: bold;
+  font-size: 1rem;
+  box-shadow: 0 2px 8px rgba(74, 144, 226, 0.3);
+}
+
+.fish-details-grid {
+  display: grid;
+  grid-template-columns: 1fr 2fr 1fr;
+  gap: 1rem;
+}
+
+.detail-group {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  padding: 0.8rem;
+}
+
+.detail-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 0.3rem;
+}
+
+.detail-icon {
+  width: 24px;
+  font-size: 0.9rem;
+}
+
+.detail-label {
+  width: 80px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.9rem;
+}
+
+.detail-value {
+  font-weight: 500;
+  color: #fff;
+}
+
+.allocation-progress {
+  margin: 0.5rem 0;
+}
+
+.progress-bar-container {
+  height: 20px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 0.3rem;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.progress-bar-fill.allocation-high {
+  background: linear-gradient(90deg, #4a90e2, #7ed321);
+}
+
+.progress-bar-fill.allocation-medium {
+  background: linear-gradient(90deg, #f5a623, #f8e71c);
+}
+
+.progress-bar-fill.allocation-low {
+  background: linear-gradient(90deg, #7ed321, #4a90e2);
+}
+
+.progress-bar-fill.allocation-very-low {
+  background: linear-gradient(90deg, #d0021b, #f5a623);
+}
+
+.allocation-stats {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.9rem;
+}
+
+.allocation-percentage {
+  color: #4a90e2;
+  font-weight: 600;
+}
+
+.allocation-grams {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.nutriments-allocation {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.nutriment-mini {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.mini-icon {
+  font-size: 0.8rem;
+}
+
+.mini-value {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.gain-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  height: 100%;
+}
+
+.gain-icon {
+  font-size: 1.2rem;
+}
+
+.gain-label {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.gain-value {
+  font-weight: bold;
+  font-size: 1.2rem;
+}
+
+.gain-value.high {
+  color: #7ed321;
+}
+
+.gain-value.medium {
+  color: #f5a623;
+}
+
+.gain-value.low {
+  color: #f8e71c;
+}
+
+.gain-value.very-low {
+  color: #d0021b;
+}
+
+/* Distribution visuelle */
+.distribution-summary-card {
+  background: linear-gradient(135deg, rgba(74, 144, 226, 0.2), rgba(126, 211, 33, 0.2));
+  border-radius: 12px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.summary-label {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.summary-value {
+  font-weight: 600;
+  color: #4a90e2;
+}
+
+.distribution-visual {
+  margin-bottom: 1.5rem;
+}
+
+.visual-title {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 0.5rem;
+}
+
+.allocation-bars-container {
+  display: flex;
+  height: 40px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  overflow: hidden;
+}
+
+.allocation-bar-wrapper {
+  position: relative;
+  height: 100%;
+  transition: all 0.3s ease;
+}
+
+.allocation-bar-wrapper:hover {
+  transform: scaleY(1.1);
+  z-index: 10;
+}
+
+.allocation-bar-colored {
+  height: 100%;
+  width: 100%;
+  transition: all 0.3s ease;
+}
+
+.allocation-label {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-size: 0.8rem;
+  font-weight: bold;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  white-space: nowrap;
+}
+
+.fish-list-footer {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 1rem;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+.footer-left {
+  display: flex;
+  gap: 1rem;
+}
+
+.footer-right .warning {
+  color: #f5a623;
+  font-size: 1.2rem;
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+  .fish-details-grid {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+}

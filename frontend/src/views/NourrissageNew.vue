@@ -561,41 +561,195 @@
         </div>
 
         <!-- Liste des poissons à nourrir -->
-        <div class="card">
-          <h2>Poissons à nourrir ({{ poissonsAffames.length }})</h2>
-          <div class="fish-list">
-            <div v-for="poisson in poissonsAffames" :key="poisson.idPoisson" class="fish-item">
-              <div class="fish-main">
-                <div class="fish-name">{{ poisson.nomPoisson }}</div>
-                <div class="fish-race">{{ poisson.racePoisson?.nomRacePoisson }}</div>
+  <div class="card">
+    <h2>Poissons à nourrir ({{ poissonsAffames.length }})</h2>
+    
+    <!-- Résumé de la distribution -->
+    <div class="distribution-summary-card" v-if="poissonsAffames.length > 0">
+      <div class="summary-row">
+        <span class="summary-label">Mode de distribution:</span>
+        <span class="summary-value">
+          {{ distributionMode === 'equitable' ? '⚖️ Équitable' : '📊 Proportionnel au poids' }}
+        </span>
+      </div>
+      <!-- <div class="summary-row">
+        <span class="summary-label">Poids total des poissons:</span>
+        <span class="summary-value">{{ formatPoids(poidsTotalPoissons) }}g</span>
+      </div> -->
+      <div class="summary-row" v-if="distributionMode === 'proportionnel'">
+        <span class="summary-label">Règle de distribution:</span>
+        <span class="summary-value">Plus le poisson est lourd, plus il reçoit de nourriture</span>
+      </div>
+    </div>
+
+    <!-- Barre de distribution visuelle -->
+    <div class="distribution-visual" v-if="distributionMode === 'proportionnel' && poissonsAffames.length > 0">
+      <div class="visual-title">Répartition visuelle de la nourriture:</div>
+      <div class="allocation-bars-container">
+        <div v-for="poisson in poissonsAffames" :key="poisson.idPoisson" 
+            class="allocation-bar-wrapper"
+            :style="{ width: getAllocation(poisson) + '%' }">
+          <div class="allocation-bar-colored" 
+              :style="{ backgroundColor: getColorForFish(poisson) }"
+              :title="`${poisson.nomPoisson}: ${getAllocation(poisson).toFixed(1)}%`">
+          </div>
+          <span class="allocation-label" v-if="getAllocation(poisson) > 8">
+            {{ getAllocation(poisson).toFixed(0) }}%
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Liste détaillée des poissons avec pourcentages -->
+    <div class="fish-list">
+      <div v-for="poisson in poissonsAffames" :key="poisson.idPoisson" 
+          class="fish-item" 
+          :class="{ 'highlight-proportionnel': distributionMode === 'proportionnel' }">
+        
+        <div class="fish-header">
+          <div class="fish-name-section">
+            <span class="fish-name">{{ poisson.nomPoisson }}</span>
+            <span class="fish-race">{{ poisson.racePoisson?.nomRacePoisson || 'Race inconnue' }}</span>
+          </div>
+          <div class="fish-percentage" v-if="distributionMode === 'proportionnel'">
+            <span class="percentage-badge" 
+                  :style="{ backgroundColor: getColorForFish(poisson, true) }">
+              {{ getAllocation(poisson).toFixed(1) }}%
+            </span>
+          </div>
+        </div>
+        
+        <div class="fish-details-grid">
+          <!-- Informations de poids -->
+          <div class="detail-group">
+            <div class="detail-item">
+              <span class="detail-icon">⚖️</span>
+              <span class="detail-label">Poids actuel:</span>
+              <span class="detail-value">{{ formatPoids(poisson.poidsActuelPoisson) }}g</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-icon">📈</span>
+              <span class="detail-label">Poids max:</span>
+              <span class="detail-value">{{ formatPoids(poisson.poidsMaximalPoisson) }}g</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-icon">📊</span>
+              <span class="detail-label">Progression:</span>
+              <span class="detail-value">{{ getProgression(poisson) }}%</span>
+            </div>
+          </div>
+
+          <!-- Allocation de nourriture -->
+          <div class="detail-group allocation-group">
+            <div class="detail-item allocation-header">
+              <span class="detail-icon">🍽️</span>
+              <span class="detail-label">Allocation:</span>
+            </div>
+            
+            <!-- Barre de progression pour l'allocation -->
+            <div class="allocation-progress">
+              <div class="progress-bar-container">
+                <div class="progress-bar-fill" 
+                    :style="{ width: getAllocation(poisson) + '%' }"
+                    :class="getAllocationClass(poisson)">
+                </div>
               </div>
-              <div class="fish-stats">
-                <div class="stat">
-                  <span class="label">Poids:</span>
-                  <span class="value">{{ formatPoids(poisson.poidsActuelPoisson) }}g</span>
-                </div>
-                <div class="stat">
-                  <span class="label">Max:</span>
-                  <span class="value">{{ formatPoids(poisson.poidsMaximalPoisson) }}g</span>
-                </div>
-                <div class="stat">
-                  <span class="label">Prog:</span>
-                  <span class="value">{{ getProgression(poisson) }}%</span>
-                </div>
+              <div class="allocation-stats">
+                <span class="allocation-percentage">
+                  <strong>{{ getAllocation(poisson).toFixed(1) }}%</strong> de la nourriture
+                </span>
+                <span class="allocation-grams">
+                  (≈ {{ formatNutrient((proteinesTotales + glucidesTotales + lipidesTotales + vitaminesTotales) * (getAllocation(poisson) / 100)) }}g de nutriments)
+                </span>
               </div>
-              <div class="fish-gain">
-                <div class="gain-indicator">
-                  <div class="gain-bar">
-                    <div class="gain-fill" :style="{ width: getAllocation(poisson) + '%' }"></div>
-                  </div>
-                  <span class="gain-text">{{ formatNutrient(getGainPrevu(poisson)) }}g</span>
-                </div>
+            </div>
+
+            <!-- Détail des nutriments alloués -->
+            <div class="nutriments-allocation">
+              <div class="nutriment-mini">
+                <span class="mini-icon">💪</span>
+                <span class="mini-value">{{ formatNutrient(proteinesTotales * (getAllocation(poisson) / 100)) }}g</span>
               </div>
+              <div class="nutriment-mini">
+                <span class="mini-icon">🍚</span>
+                <span class="mini-value">{{ formatNutrient(glucidesTotales * (getAllocation(poisson) / 100)) }}g</span>
+              </div>
+              <div class="nutriment-mini">
+                <span class="mini-icon">⚡</span>
+                <span class="mini-value">{{ formatNutrient(lipidesTotales * (getAllocation(poisson) / 100)) }}g</span>
+              </div>
+              <div class="nutriment-mini">
+                <span class="mini-icon">💊</span>
+                <span class="mini-value">{{ formatNutrient(vitaminesTotales * (getAllocation(poisson) / 100), 2) }}g</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Gain prévu -->
+          <div class="detail-group gain-group">
+            <div class="gain-preview">
+              <span class="gain-icon">📈</span>
+              <span class="gain-label">Gain prévu:</span>
+              <span class="gain-value" :class="getGainClass(getGainPrevu(poisson))">
+                {{ formatNutrient(getGainPrevu(poisson)) }}g
+              </span>
             </div>
           </div>
         </div>
       </div>
     </div>
+
+    <!-- Pied de tableau avec totaux -->
+    <!-- <div class="fish-list-footer" v-if="poissonsAffames.length > 0">
+      <div class="footer-left">
+        <span class="total-label">Total:</span>
+        <span class="total-value">{{ poissonsAffames.length }} poissons</span>
+        <span class="total-weight">{{ formatPoids(poidsTotalPoissons) }}g</span>
+      </div>
+      <div class="footer-right">
+        <span class="total-allocation">
+          Allocation totale: 
+          <strong>{{ totalAllocations.toFixed(1) }}%</strong>
+          <span v-if="Math.abs(totalAllocations - 100) > 0.1" class="warning"> ⚠️</span>
+        </span>
+      </div>
+    </div> -->
+  </div>
+
+ 
+        <!-- <div class="distribution-preview" v-if="distributionMode === 'proportionnel'">
+        <h4>Aperçu de la distribution (proportionnelle au poids)</h4>
+        <div class="allocation-bars">
+          <div v-for="poisson in poissonsAffames" :key="poisson.idPoisson" 
+              class="allocation-bar-container">
+            <div class="allocation-bar" 
+                :style="{ width: getAllocation(poisson) + '%' }"
+                :title="`${poisson.nomPoisson}: ${getAllocation(poisson).toFixed(1)}%`">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="distribution-summary">
+        <div class="summary-item">
+          <span class="label">Mode:</span>
+          <span class="value">{{ distributionMode === 'equitable' ? 'Équitable' : 'Proportionnel au poids' }}</span>
+        </div>
+        <div class="summary-item">
+          <span class="label">Poids total:</span>
+          <span class="value">{{ formatPoids(poidsTotalPoissons) }}g</span>
+        </div>
+        <div class="summary-item">
+          <span class="label">Poissons:</span>
+          <span class="value">{{ nbPoissons }}</span>
+        </div>
+      </div> -->
+
+
+      </div>
+    </div>
+
+
 
     <!-- Résultat du nourrissage (avec lipides et vitamines) -->
     <div v-if="resultatNourrissage" class="result-modal">
@@ -737,7 +891,7 @@ export default {
     const showCustomAliment = ref(false)
     const showCustomAlimentPreview = ref(true)
     const quantitePlat = ref(0.1)
-    const distributionMode = ref('equitable')
+    const distributionMode = ref('proportionnel')
     
     // Aliment personnalisé (avec lipides et vitamines)
     const customAliment = ref({
@@ -748,7 +902,14 @@ export default {
       prixParKg: 2000
     })
 
-    // ============== MÉTHODES UTILITAIRES ==============
+    //calcule la somme des poids de tous les poissons affamé
+   const poidsTotalPoissons = computed(() => {
+    return poissonsAffames.value.reduce((sum, poisson) => {
+      return sum + parseFloat(poisson.poidsActuelPoisson || 0);
+    }, 0);
+  });
+  
+ 
     
     const formatStock = (stock) => {
       if (!stock && stock !== 0) return '0.00'
@@ -770,7 +931,6 @@ export default {
       return parseFloat(poids).toFixed(2)
     }
 
-    // ============== ANALYSE DE QUALITÉ ==============
     
     const analyserAliment = (aliment) => {
       if (!aliment) return null
@@ -820,7 +980,7 @@ export default {
       }
     }
 
-    // ============== CHARGEMENT DES DONNÉES ==============
+   
     
     const loadData = async () => {
       try {
@@ -902,7 +1062,7 @@ export default {
       loadData()
     })
 
-    // ============== PROPRIÉTÉS COMPUTED ==============
+   
     
     // Aliment ou Plat sélectionné
     const selectedAliment = computed(() => {
@@ -1010,9 +1170,16 @@ export default {
       return vitaminesTotal
     })
     
-    // Par poisson
+   
     const nbPoissons = computed(() => stats.value.poissonsAffames || 0)
-    
+
+    //Vérifie que la somme des pourcentages fait bien 100%
+    const totalAllocations = computed(() => {
+      return poissonsAffames.value.reduce((sum, poisson) => {
+        return sum + getAllocation(poisson);
+      }, 0);
+    });
+
     const proteinesParPoisson = computed(() => {
       if (nbPoissons.value === 0) return 0
       return proteinesTotales.value / nbPoissons.value
@@ -1242,6 +1409,8 @@ export default {
     })
 
     // ============== MÉTHODES ==============
+
+  
     
     const selectAliment = (aliment) => {
       selectedAlimentId.value = aliment.idAliment
@@ -1294,29 +1463,79 @@ export default {
     }
     
     const getAllocation = (poisson) => {
+      if (nbPoissons.value === 0) return 0;
+      
       switch (distributionMode.value) {
         case 'proportionnel':
-          const totalPoids = poissonsAffames.value.reduce((sum, p) => sum + parseFloat(p.poidsActuelPoisson || 0), 0)
-          return totalPoids > 0 ? (parseFloat(poisson.poidsActuelPoisson) / totalPoids) * 100 : 100 / nbPoissons.value
+          // Distribution proportionnelle au poids
+          if (poidsTotalPoissons.value === 0) return 100 / nbPoissons.value;
+          
+          // Calculer le ratio de poids (poids individuel / poids total)
+          const poidsPoisson = parseFloat(poisson.poidsActuelPoisson || 0);
+          const ratio = poidsPoisson / poidsTotalPoissons.value;
+          
+          return ratio * 100;
+          
+        case 'prioritaire':
+          return 100 / nbPoissons.value;
+          
+        case 'equitable':
         default:
-          return 100 / nbPoissons.value
+          // Distribution équitable (par défaut)
+          return 100 / nbPoissons.value;
       }
-    }
+    };
+   
+
     
+    watch(totalAllocations, (newVal) => {
+      if (Math.abs(newVal - 100) > 0.01) {
+        console.warn(`Attention: La somme des allocations est de ${newVal}% au lieu de 100%`);
+      }
+    });
+
     const getGainPrevu = (poisson) => {
-      const allocation = getAllocation(poisson) / 100
-      const proteinesAllouees = proteinesTotales.value * allocation
-      const glucidesAlloues = glucidesTotales.value * allocation
-      const lipidesAlloues = lipidesTotales.value * allocation
-      const vitaminesAllouees = vitaminesTotales.value * allocation
+      const allocation = getAllocation(poisson) / 100;
+      
+      // Répartir les nutriments proportionnellement
+      const proteinesAllouees = proteinesTotales.value * allocation;
+      const glucidesAlloues = glucidesTotales.value * allocation;
+      const lipidesAlloues = lipidesTotales.value * allocation;
+      const vitaminesAllouees = vitaminesTotales.value * allocation;
+      
       return calculService.calculerGainPoidsComplet(
         proteinesAllouees, 
         glucidesAlloues, 
         lipidesAlloues, 
         vitaminesAllouees
-      )
-    }
-    
+      );
+    };
+
+      // Méthode pour obtenir une couleur unique par poisson (pour la visualisation)
+    const getColorForFish = (poisson, light = false) => {
+      const colors = light ? [
+        '#e6f3ff', '#fff0e6', '#e6ffe6', '#ffe6f3', '#f3e6ff', '#fff9e6'
+      ] : [
+        '#4a90e2', '#f5a623', '#7ed321', '#d0021b', '#9013fe', '#f8e71c'
+      ];
+      
+      // Utiliser l'ID du poisson pour choisir une couleur cohérente
+      const index = (poisson.idPoisson || Math.random()).toString().split('').reduce((a, b) => a + b.charCodeAt(0), 0) % colors.length;
+      return colors[index];
+    };
+
+    // Classe pour l'allocation (pour les barres de progression)
+  const getAllocationClass = (poisson) => {
+    const allocation = getAllocation(poisson);
+    if (allocation >= 30) return 'allocation-high';
+    if (allocation >= 20) return 'allocation-medium';
+    if (allocation >= 10) return 'allocation-low';
+    return 'allocation-very-low';
+  };
+
+
+ 
+        
     const getSatisfactionClass = (pourcentage) => {
       if (pourcentage >= 100) return 'excellent'
       if (pourcentage >= 80) return 'good'
@@ -1544,7 +1763,10 @@ export default {
       executerNourrissage,
       fermerResultat,
       voirHistorique,
-      loadData 
+      loadData,
+      getAllocationClass,
+      getColorForFish,
+        totalAllocations,
     }
   }
 }

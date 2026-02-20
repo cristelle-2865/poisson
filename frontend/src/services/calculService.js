@@ -94,7 +94,7 @@ export const calculService = {
                    (excedent * FACTEUR_LIPIDES * 0.6); // 60% d'efficacité
     }
     
-    // Gain des vitamines (NOUVEAU)
+    // Gain des vitamines
     if (vitaminesEfficaces <= BESOIN_VITAMINES) {
       gainTotal += vitaminesEfficaces * FACTEUR_VITAMINES;
     } else {
